@@ -27,42 +27,40 @@ pub struct Node {
 
 impl Node {
     pub fn evaluate(&self, x1: f64, x2: f64) -> f64 {
-        match (self.value.get(0..1).unwrap(), self.value.len()) {
-            ("+", 1) => {
-                self.left.as_ref().unwrap().evaluate(x1, x2)
-                    + self.right.as_ref().unwrap().evaluate(x1, x2)
-            }
-            ("-", 1) => {
-                self.left.as_ref().unwrap().evaluate(x1, x2)
-                    - self.right.as_ref().unwrap().evaluate(x1, x2)
-            }
-            ("*", 1) => {
-                self.left.as_ref().unwrap().evaluate(x1, x2)
-                    * self.right.as_ref().unwrap().evaluate(x1, x2)
-            }
-            ("/", 1) => {
-                let r_val = self.right.as_ref().unwrap().evaluate(x1, x2);
-                if r_val == 0.0 {
-                    0.0
-                } else {
-                    self.left.as_ref().unwrap().evaluate(x1, x2) / r_val
+        let left = self.left.as_ref().map(|f| f.evaluate(x1, x2));
+        let right = self.right.as_ref().map(|f| f.evaluate(x1, x2));
+        match (left, right) {
+            (Some(left), Some(right)) => {
+                match (self.value.get(0..1).unwrap_or("bork"), self.value.len()) {
+                    ("+", 1) => left + right,
+                    ("-", 1) => left - right,
+                    ("*", 1) => left * right,
+                    ("/", 1) => {
+                        if right == 0.0 {
+                            0.0
+                        } else {
+                            left / right
+                        }
+                    }
+                    ("^", 1) => left.powf(right),
+                    _ => match self.value.parse() {
+                        Ok(v) => v,
+                        _ => 0.0,
+                    },
                 }
             }
-            ("^", 1) => self
-                .left
-                .as_ref()
-                .unwrap()
-                .evaluate(x1, x2)
-                .powf(self.right.as_ref().unwrap().evaluate(x1, x2)),
-            ("X", _) => match self.value.get(1..2).unwrap() {
-                "0" => x1,
-                "1" => x2,
-                _ => 0.0,
+            (None, None) => match self.value.get(0..1).unwrap_or("bork") {
+                "X" => match self.value.get(1..2).unwrap() {
+                    "0" => x1,
+                    "1" => x2,
+                    _ => 0.0,
+                },
+                _ => match self.value.parse() {
+                    Ok(v) => v,
+                    _ => 0.0,
+                },
             },
-            _ => match self.value.parse() {
-                Ok(v) => v,
-                _ => 0.0,
-            },
+            _ => 0.0,
         }
     }
 
@@ -88,14 +86,14 @@ impl Node {
         queue.push_back(Some(Rc::new(self.clone())));
         let mut cindex = 0;
 
-        let mut current_node: Child = None;
-        while !queue.is_empty() {
-            current_node = queue.pop_front().unwrap();
+        let mut last_element: Child = None;
+        while let Some(current_node) = queue.pop_front() {
             if current_node.is_some() {
                 if cindex == n {
                     return current_node;
                 }
                 cindex += 1;
+                last_element = current_node;
 
                 if let (Some(l), Some(r)) = (&self.left, &self.right) {
                     queue.push_back(Some(l.clone()));
@@ -103,7 +101,7 @@ impl Node {
                 }
             }
         }
-        current_node
+        last_element
     }
 
     pub fn node_count(&self) -> usize {
@@ -237,20 +235,21 @@ impl Fitness for GATree {
         let mut wrong: f64 = 0.0;
         (0..10).for_each(|i| {
             (0..10).for_each(|y| match &tree.root {
-                None => wrong += 1.0,
+                None => wrong += 3.0,
                 Some(root) => {
                     let actual = root.evaluate(i as f64, y as f64) % (i64::MAX as f64);
-                    let real = i * i + y * y;
+                    // This is the function we're trying to approximate
+                    let real = i * i + y * y + 0;
                     let diff = (real - actual.round() as i64).abs();
                     match diff {
                         0 => {}
-                        1..=100 => wrong += 1.0,
-                        _ => wrong += 2.0,
+                        1..=100 => wrong += diff as f64,
+                        _ => wrong += 1000.0,
                     }
                 }
             });
         });
-        self.inner.fitness = Some(500.0 - wrong);
+        self.inner.fitness = Some(0.0 - wrong);
 
         self.inner.fitness
     }
@@ -285,10 +284,10 @@ pub fn random_node(depth: usize, seed: [u8; 32]) -> Child {
 
 fn main() {
     let config = PopulationConfig {
-        pop_size: 10,
-        crossover_count: 2,
-        mutate_count: 2,
-        elitism_count: 2,
+        pop_size: 30,
+        crossover_count: 8,
+        mutate_count: 8,
+        elitism_count: 6,
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },
