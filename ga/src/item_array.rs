@@ -5,8 +5,6 @@ use crate::genome::{Crossover, FitnessRetrieve, Generate, Genome, Mutate, Mutati
 pub const DEFAULT_MIN_LEN: usize = 20;
 pub const DEFAULT_MAX_LEN: usize = 20;
 
-const ALLELE_MUT_CHANCE: i32 = 10;
-
 #[derive(Default, Clone, Debug)]
 pub struct ItemArray<T: Clone + Default + Mutate> {
     inner: Genome<Vec<T>>,
@@ -41,7 +39,7 @@ impl<T: Clone + Default + Mutate> Mutate for ItemArray<T> {
             .data
             .iter()
             .map(|e| {
-                if rng.gen::<i32>() % 100 < ALLELE_MUT_CHANCE {
+                if rng.gen::<i32>() % 100 < ((100.0 * config.gene_mutation_chance) as i32) {
                     e.mutate(config)
                 } else {
                     e.clone()

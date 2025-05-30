@@ -250,7 +250,7 @@ impl Fitness for GATree {
                 }
             });
         });
-        self.inner.fitness = Some(wrong);
+        self.inner.fitness = Some(500.0 - wrong);
 
         self.inner.fitness
     }
@@ -272,7 +272,7 @@ pub fn random_node(depth: usize) -> Child {
             var_name.push_str(var.to_string().as_str());
             Node::new(var_name, None, None)
         }
-        (2..=4, _) => {
+        (2..=6, _) => {
             let ops = vec!['+', '-', '*', '/', '^'];
             let value = ops[val - 2].to_string();
             let left = random_node(depth - 1);
@@ -298,6 +298,10 @@ fn main() {
     (0..1000).for_each(|i| {
         p.tick();
         let best = p.get_best_member();
-        println!("Gen {i}: {:?}", best);
+        println!(
+            "Gen {i}: Fitness: {} - {:?}",
+            best.get_fitness().unwrap(),
+            best.inner.data.root.clone().unwrap().print()
+        );
     });
 }
