@@ -1,4 +1,4 @@
-use ga::genome::{Crossover, FitnessRetrieve, Generate, Mutate, Population};
+use ga::genome::{Crossover, FitnessRetrieve, Generate, Mutate, Population, PopulationConfig};
 use ga::item_array::ItemArray;
 use rand::Rng;
 
@@ -72,7 +72,13 @@ impl Default for IntegerArray {
 }
 
 fn main() {
-    let mut p: Population<IntegerArray> = Population::new();
+    let config = PopulationConfig {
+        pop_size: 10,
+        crossover_count: 2,
+        mutate_count: 2,
+        elitism_count: 2,
+    };
+    let mut p: Population<IntegerArray> = Population::new(config);
 
     (0..1000).for_each(|i| {
         p.tick();

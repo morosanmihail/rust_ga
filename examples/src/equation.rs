@@ -1,6 +1,8 @@
 use std::{collections::VecDeque, rc::Rc};
 
-use ga::genome::{Crossover, Fitness, FitnessRetrieve, Generate, Genome, Mutate, Population};
+use ga::genome::{
+    Crossover, Fitness, FitnessRetrieve, Generate, Genome, Mutate, Population, PopulationConfig,
+};
 use rand::Rng;
 
 const ALLELE_MUT_CHANCE: i32 = 10;
@@ -282,7 +284,13 @@ pub fn random_node(depth: usize) -> Child {
 }
 
 fn main() {
-    let mut p: Population<GATree> = Population::new();
+    let config = PopulationConfig {
+        pop_size: 10,
+        crossover_count: 2,
+        mutate_count: 2,
+        elitism_count: 2,
+    };
+    let mut p: Population<GATree> = Population::new(config);
 
     (0..1000).for_each(|i| {
         p.tick();

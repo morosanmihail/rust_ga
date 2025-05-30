@@ -1,11 +1,11 @@
 use rand::seq::SliceRandom;
 
-const POP_SIZE: usize = 100;
-const POP_MUT_COUNT: usize = 20;
-const POP_MUT_CHANCE: i32 = 10;
-const POP_CROSS_COUNT: i32 = 20;
-const POP_CROSS_CHANCE: i32 = 20;
-const ELITISM_COUNT: usize = 10;
+// const POP_SIZE: usize = 100;
+// const POP_MUT_COUNT: usize = 20;
+// const POP_MUT_CHANCE: i32 = 10;
+// const POP_CROSS_COUNT: i32 = 20;
+// const POP_CROSS_CHANCE: i32 = 20;
+// const ELITISM_COUNT: usize = 10;
 
 #[derive(Debug, Default, Clone)]
 pub struct Genome<T: Clone + Default> {
@@ -39,18 +39,27 @@ pub trait Generate {
     fn generate() -> Self;
 }
 
+#[derive(Debug, Default, Clone)]
+pub struct PopulationConfig {
+    pub pop_size: usize,
+    pub crossover_count: usize,
+    pub mutate_count: usize,
+    pub elitism_count: usize,
+}
+
 #[derive(Debug)]
 pub struct Population<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default> {
     pub members: Vec<T>,
+    pub config: PopulationConfig,
 }
 
 impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Clone> Population<T> {
-    pub fn new() -> Population<T> {
+    pub fn new(config: PopulationConfig) -> Population<T> {
         let mut members: Vec<T> = Vec::new();
-        for _ in 1..=POP_SIZE {
+        for _ in 1..=config.pop_size {
             members.push(T::generate());
         }
-        Population { members }
+        Population { members, config }
     }
 
     pub fn sort_members(&mut self) {
@@ -79,14 +88,14 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
         new_pop.extend(
             self.members
                 .iter()
-                .take(ELITISM_COUNT)
+                .take(self.config.elitism_count)
                 .cloned()
                 .collect::<Vec<_>>(),
         );
         println!("{}", new_pop.len());
 
         // Then mutation
-        (0..POP_MUT_COUNT).for_each(|_| {
+        (0..self.config.mutate_count).for_each(|_| {
             let mutatable_member = self.members.choose(&mut rng);
             if let Some(t) = mutatable_member {
                 let mut m = t.mutate();
@@ -97,7 +106,7 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
         println!("{}", new_pop.len());
 
         // Then crossover
-        (0..POP_CROSS_COUNT).for_each(|_| {
+        (0..self.config.crossover_count).for_each(|_| {
             let crossoverable_members: Vec<&T> =
                 self.members.choose_multiple(&mut rng, 2).collect();
             let mut crossoverd_member =
@@ -108,7 +117,7 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
         println!("{}", new_pop.len());
 
         // Then newly generated ones
-        (new_pop.len()..POP_SIZE).for_each(|_| {
+        (new_pop.len()..self.config.pop_size).for_each(|_| {
             let mut generated_member = T::generate();
             generated_member.calculate_fitness();
             new_pop.push(generated_member);
