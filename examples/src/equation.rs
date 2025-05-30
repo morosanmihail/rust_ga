@@ -1,10 +1,10 @@
 use std::{collections::VecDeque, rc::Rc};
 
-use ga::genome::{
-    Crossover, Fitness, FitnessRetrieve, Generate, Genome, Mutate, MutationConfig, Population,
-    PopulationConfig,
+use ga::{
+    population::{Genome, MutationConfig, Population, PopulationConfig},
+    traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate},
 };
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 pub const MAX_DEPTH: usize = 5;
 pub const NR_VARS: usize = 2;
@@ -139,27 +139,27 @@ struct GATree {
 }
 
 impl Mutate for GATree {
-    fn mutate(&self, config: &MutationConfig) -> Self {
+    fn mutate(&self, config: &MutationConfig, seed: [u8; 32]) -> Self {
         let tree = &self.inner.data;
 
-        fn traverse(root: &Child, config: &MutationConfig) -> Child {
-            let mut rng = rand::thread_rng();
+        fn traverse(root: &Child, config: &MutationConfig, seed: [u8; 32]) -> Child {
+            let mut rng: StdRng = SeedableRng::from_seed(seed);
 
             match root {
                 None => None,
                 Some(node) => {
                     if rng.gen::<i32>() % 100 < ((100.0 * config.gene_mutation_chance) as i32) {
-                        random_node(node.depth())
+                        random_node(node.depth(), rng.gen())
                     } else {
-                        let new_left = traverse(&node.left, config);
-                        let new_right = traverse(&node.right, config);
+                        let new_left = traverse(&node.left, config, rng.gen());
+                        let new_right = traverse(&node.right, config, rng.gen());
                         Node::new(node.value.clone(), new_left, new_right)
                     }
                 }
             }
         }
 
-        let new_root = traverse(&tree.root, config);
+        let new_root = traverse(&tree.root, config, seed);
         GATree {
             inner: Genome {
                 data: Tree { root: new_root },
@@ -170,8 +170,8 @@ impl Mutate for GATree {
 }
 
 impl Crossover for GATree {
-    fn crossover(&self, other: &Self) -> Self {
-        let mut rng = rand::thread_rng();
+    fn crossover(&self, other: &Self, seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         let tree = self.inner.data.root.clone().unwrap();
         let crossover_tree = &other.inner.data.root.as_ref();
@@ -214,8 +214,8 @@ impl Crossover for GATree {
 }
 
 impl Generate for GATree {
-    fn generate() -> Self {
-        let root = random_node(MAX_DEPTH);
+    fn generate(seed: [u8; 32]) -> Self {
+        let root = random_node(MAX_DEPTH, seed);
         GATree {
             inner: Genome {
                 data: Tree::new(root),
@@ -232,7 +232,7 @@ impl FitnessRetrieve for GATree {
 }
 
 impl Fitness for GATree {
-    fn calculate_fitness(&mut self) -> Option<f64> {
+    fn calculate_fitness(&mut self, _seed: [u8; 32]) -> Option<f64> {
         let tree = &self.inner.data;
         let mut wrong: f64 = 0.0;
         (0..10).for_each(|i| {
@@ -256,8 +256,8 @@ impl Fitness for GATree {
     }
 }
 
-pub fn random_node(depth: usize) -> Child {
-    let mut rng = rand::thread_rng();
+pub fn random_node(depth: usize, seed: [u8; 32]) -> Child {
+    let mut rng: StdRng = SeedableRng::from_seed(seed);
     let mut val = rng.gen_range(0..7);
     if depth <= 1 {
         val = rng.gen_range(0..2);
@@ -275,8 +275,8 @@ pub fn random_node(depth: usize) -> Child {
         (2..=6, _) => {
             let ops = vec!['+', '-', '*', '/', '^'];
             let value = ops[val - 2].to_string();
-            let left = random_node(depth - 1);
-            let right = random_node(depth - 1);
+            let left = random_node(depth - 1, rng.gen());
+            let right = random_node(depth - 1, rng.gen());
             Node::new(value, left, right)
         }
         _ => Node::new("borked".to_string(), None, None),
@@ -292,6 +292,7 @@ fn main() {
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },
+        seed: rand::thread_rng().gen(),
     };
     let mut p: Population<GATree> = Population::new(config);
 

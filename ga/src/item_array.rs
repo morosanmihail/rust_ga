@@ -1,6 +1,9 @@
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
-use crate::genome::{Crossover, FitnessRetrieve, Generate, Genome, Mutate, MutationConfig};
+use crate::{
+    population::{Genome, MutationConfig},
+    traits::{Crossover, FitnessRetrieve, Generate, Mutate},
+};
 
 pub const DEFAULT_MIN_LEN: usize = 20;
 pub const DEFAULT_MAX_LEN: usize = 20;
@@ -17,13 +20,13 @@ impl<T: Clone + Default + Mutate + Generate> ItemArray<T> {
     pub fn set_fitness(&mut self, fitness: Option<f64>) {
         self.inner.fitness = fitness;
     }
-    pub fn generate_length(min_length: usize, max_length: usize) -> Self {
-        let mut rng = rand::thread_rng();
+    pub fn generate_length(min_length: usize, max_length: usize, seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         ItemArray {
             inner: Genome {
                 data: (0..rng.gen_range(min_length..=max_length))
-                    .map(|_| T::generate())
+                    .map(|_| T::generate(rng.gen()))
                     .collect(),
                 ..Default::default()
             },
@@ -32,15 +35,15 @@ impl<T: Clone + Default + Mutate + Generate> ItemArray<T> {
 }
 
 impl<T: Clone + Default + Mutate> Mutate for ItemArray<T> {
-    fn mutate(&self, config: &MutationConfig) -> Self {
-        let mut rng = rand::thread_rng();
+    fn mutate(&self, config: &MutationConfig, seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         let new_data = self
             .inner
             .data
             .iter()
             .map(|e| {
                 if rng.gen::<i32>() % 100 < ((100.0 * config.gene_mutation_chance) as i32) {
-                    e.mutate(config)
+                    e.mutate(config, rng.gen())
                 } else {
                     e.clone()
                 }
@@ -56,8 +59,8 @@ impl<T: Clone + Default + Mutate> Mutate for ItemArray<T> {
 }
 
 impl<T: Clone + Default + Mutate> Crossover for ItemArray<T> {
-    fn crossover(&self, other: &Self) -> Self {
-        let mut rng = rand::thread_rng();
+    fn crossover(&self, other: &Self, seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         let min_length = std::cmp::min(self.inner.data.len(), other.inner.data.len());
 
         let crossover_point = rng.gen_range(0..=min_length);
@@ -78,13 +81,13 @@ impl<T: Clone + Default + Mutate> Crossover for ItemArray<T> {
 }
 
 impl<T: Clone + Generate + Default + Mutate> Generate for ItemArray<T> {
-    fn generate() -> Self {
-        let mut rng = rand::thread_rng();
+    fn generate(seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
 
         ItemArray {
             inner: Genome {
                 data: (0..rng.gen_range(DEFAULT_MIN_LEN..=DEFAULT_MAX_LEN))
-                    .map(|_| T::generate())
+                    .map(|_| T::generate(rng.gen()))
                     .collect(),
                 ..Default::default()
             },

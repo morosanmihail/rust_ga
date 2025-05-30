@@ -1,8 +1,9 @@
-use ga::genome::{
-    Crossover, FitnessRetrieve, Generate, Mutate, MutationConfig, Population, PopulationConfig,
+use ga::{
+    item_array::ItemArray,
+    population::{MutationConfig, Population, PopulationConfig},
+    traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate},
 };
-use ga::item_array::ItemArray;
-use rand::Rng;
+use rand::{rngs::StdRng, Rng, SeedableRng};
 
 #[derive(Clone, Copy, Default, Debug)]
 struct Integer(i64);
@@ -13,14 +14,14 @@ struct IntegerArray(ItemArray<Integer>);
 const MIN_VALUE: i64 = -255;
 const MAX_VALUE: i64 = 255;
 
-impl ga::genome::Fitness for IntegerArray {
-    fn calculate_fitness(&mut self) -> Option<f64> {
+impl Fitness for IntegerArray {
+    fn calculate_fitness(&mut self, _seed: [u8; 32]) -> Option<f64> {
         if self.0.get_fitness().is_none() {
             let res: i64 = self
                 .0
                 .get_data()
                 .iter()
-                .map(|v| if v.0 == 0 { 0 } else { 1 })
+                .map(|v| if v.0 == 0 { 1 } else { 0 })
                 .sum();
             self.0.set_fitness(Some(res as f64));
             return Some(res as f64);
@@ -30,29 +31,29 @@ impl ga::genome::Fitness for IntegerArray {
 }
 
 impl Generate for Integer {
-    fn generate() -> Self {
-        let mut rng = rand::thread_rng();
+    fn generate(seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         Integer(rng.gen_range(MIN_VALUE..=MAX_VALUE))
     }
 }
 
 impl Mutate for Integer {
-    fn mutate(&self, _config: &MutationConfig) -> Self {
+    fn mutate(&self, _config: &MutationConfig, _seed: [u8; 32]) -> Self {
         let mut rng = rand::thread_rng();
         Integer(self.0 + rng.gen_range(MIN_VALUE / 10..=MAX_VALUE / 10))
     }
 }
 
 impl Generate for IntegerArray {
-    fn generate() -> Self {
-        IntegerArray(ItemArray::generate_length(2, 4))
+    fn generate(seed: [u8; 32]) -> Self {
+        IntegerArray(ItemArray::generate_length(2, 4, seed))
         // IntegerArray(ItemArray::generate())
     }
 }
 
 impl Crossover for IntegerArray {
-    fn crossover(&self, other: &Self) -> Self {
-        IntegerArray(self.0.crossover(&other.0))
+    fn crossover(&self, other: &Self, seed: [u8; 32]) -> Self {
+        IntegerArray(self.0.crossover(&other.0, seed))
     }
 }
 
@@ -63,8 +64,8 @@ impl FitnessRetrieve for IntegerArray {
 }
 
 impl Mutate for IntegerArray {
-    fn mutate(&self, config: &MutationConfig) -> Self {
-        IntegerArray(self.0.mutate(config))
+    fn mutate(&self, config: &MutationConfig, seed: [u8; 32]) -> Self {
+        IntegerArray(self.0.mutate(config, seed))
     }
 }
 
@@ -83,10 +84,11 @@ fn main() {
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },
+        seed: rand::thread_rng().gen(),
     };
     let mut p: Population<IntegerArray> = Population::new(config);
 
-    (0..10).for_each(|i| {
+    (0..10000).for_each(|i| {
         p.tick();
         let best = p.get_best_member();
         println!("Gen {i}: {:?}", best);
