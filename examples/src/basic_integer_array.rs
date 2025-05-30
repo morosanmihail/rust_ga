@@ -38,8 +38,8 @@ impl Generate for Integer {
 }
 
 impl Mutate for Integer {
-    fn mutate(&self, _config: &MutationConfig, _seed: [u8; 32]) -> Self {
-        let mut rng = rand::thread_rng();
+    fn mutate(&self, _config: &MutationConfig, seed: [u8; 32]) -> Self {
+        let mut rng: StdRng = SeedableRng::from_seed(seed);
         Integer(self.0 + rng.gen_range(MIN_VALUE / 10..=MAX_VALUE / 10))
     }
 }
