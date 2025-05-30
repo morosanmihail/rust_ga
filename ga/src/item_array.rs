@@ -1,9 +1,9 @@
 use rand::Rng;
 
-use crate::genome::{Crossover, FitnessRetrieve, Generate, Genome, Mutate};
+use crate::genome::{Crossover, FitnessRetrieve, Generate, Genome, Mutate, MutationConfig};
 
-pub const MIN_LEN: usize = 20;
-pub const MAX_LEN: usize = 20;
+pub const DEFAULT_MIN_LEN: usize = 20;
+pub const DEFAULT_MAX_LEN: usize = 20;
 
 const ALLELE_MUT_CHANCE: i32 = 10;
 
@@ -12,17 +12,29 @@ pub struct ItemArray<T: Clone + Default + Mutate> {
     inner: Genome<Vec<T>>,
 }
 
-impl<T: Clone + Default + Mutate> ItemArray<T> {
+impl<T: Clone + Default + Mutate + Generate> ItemArray<T> {
     pub fn get_data(&self) -> &Vec<T> {
         &self.inner.data
     }
     pub fn set_fitness(&mut self, fitness: Option<f64>) {
         self.inner.fitness = fitness;
     }
+    pub fn generate_length(min_length: usize, max_length: usize) -> Self {
+        let mut rng = rand::thread_rng();
+
+        ItemArray {
+            inner: Genome {
+                data: (0..rng.gen_range(min_length..=max_length))
+                    .map(|_| T::generate())
+                    .collect(),
+                ..Default::default()
+            },
+        }
+    }
 }
 
 impl<T: Clone + Default + Mutate> Mutate for ItemArray<T> {
-    fn mutate(&self) -> Self {
+    fn mutate(&self, config: &MutationConfig) -> Self {
         let mut rng = rand::thread_rng();
         let new_data = self
             .inner
@@ -30,7 +42,7 @@ impl<T: Clone + Default + Mutate> Mutate for ItemArray<T> {
             .iter()
             .map(|e| {
                 if rng.gen::<i32>() % 100 < ALLELE_MUT_CHANCE {
-                    e.mutate()
+                    e.mutate(config)
                 } else {
                     e.clone()
                 }
@@ -73,7 +85,7 @@ impl<T: Clone + Generate + Default + Mutate> Generate for ItemArray<T> {
 
         ItemArray {
             inner: Genome {
-                data: (0..rng.gen_range(MIN_LEN..=MAX_LEN))
+                data: (0..rng.gen_range(DEFAULT_MIN_LEN..=DEFAULT_MAX_LEN))
                     .map(|_| T::generate())
                     .collect(),
                 ..Default::default()

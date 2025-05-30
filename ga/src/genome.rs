@@ -1,12 +1,5 @@
 use rand::seq::SliceRandom;
 
-// const POP_SIZE: usize = 100;
-// const POP_MUT_COUNT: usize = 20;
-// const POP_MUT_CHANCE: i32 = 10;
-// const POP_CROSS_COUNT: i32 = 20;
-// const POP_CROSS_CHANCE: i32 = 20;
-// const ELITISM_COUNT: usize = 10;
-
 #[derive(Debug, Default, Clone)]
 pub struct Genome<T: Clone + Default> {
     pub data: T,
@@ -32,11 +25,16 @@ impl<T: Default + Clone> FitnessRetrieve for Genome<T> {
 }
 
 pub trait Mutate {
-    fn mutate(&self) -> Self;
+    fn mutate(&self, config: &MutationConfig) -> Self;
 }
 
 pub trait Generate {
     fn generate() -> Self;
+}
+
+#[derive(Debug, Default, Clone)]
+pub struct MutationConfig {
+    pub gene_mutation_chance: f64,
 }
 
 #[derive(Debug, Default, Clone)]
@@ -45,6 +43,8 @@ pub struct PopulationConfig {
     pub crossover_count: usize,
     pub mutate_count: usize,
     pub elitism_count: usize,
+
+    pub mutation_config: MutationConfig,
 }
 
 #[derive(Debug)]
@@ -92,18 +92,16 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
                 .cloned()
                 .collect::<Vec<_>>(),
         );
-        println!("{}", new_pop.len());
 
         // Then mutation
         (0..self.config.mutate_count).for_each(|_| {
             let mutatable_member = self.members.choose(&mut rng);
             if let Some(t) = mutatable_member {
-                let mut m = t.mutate();
+                let mut m = t.mutate(&self.config.mutation_config);
                 m.calculate_fitness();
                 new_pop.push(m);
             }
         });
-        println!("{}", new_pop.len());
 
         // Then crossover
         (0..self.config.crossover_count).for_each(|_| {
@@ -114,7 +112,6 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
             crossoverd_member.calculate_fitness();
             new_pop.push(crossoverd_member);
         });
-        println!("{}", new_pop.len());
 
         // Then newly generated ones
         (new_pop.len()..self.config.pop_size).for_each(|_| {

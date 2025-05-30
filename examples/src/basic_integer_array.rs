@@ -1,4 +1,6 @@
-use ga::genome::{Crossover, FitnessRetrieve, Generate, Mutate, Population, PopulationConfig};
+use ga::genome::{
+    Crossover, FitnessRetrieve, Generate, Mutate, MutationConfig, Population, PopulationConfig,
+};
 use ga::item_array::ItemArray;
 use rand::Rng;
 
@@ -35,7 +37,7 @@ impl Generate for Integer {
 }
 
 impl Mutate for Integer {
-    fn mutate(&self) -> Self {
+    fn mutate(&self, _config: &MutationConfig) -> Self {
         let mut rng = rand::thread_rng();
         Integer(self.0 + rng.gen_range(MIN_VALUE / 10..=MAX_VALUE / 10))
     }
@@ -43,7 +45,8 @@ impl Mutate for Integer {
 
 impl Generate for IntegerArray {
     fn generate() -> Self {
-        IntegerArray(ItemArray::generate())
+        IntegerArray(ItemArray::generate_length(2, 4))
+        // IntegerArray(ItemArray::generate())
     }
 }
 
@@ -60,8 +63,8 @@ impl FitnessRetrieve for IntegerArray {
 }
 
 impl Mutate for IntegerArray {
-    fn mutate(&self) -> Self {
-        IntegerArray(self.0.mutate())
+    fn mutate(&self, config: &MutationConfig) -> Self {
+        IntegerArray(self.0.mutate(config))
     }
 }
 
@@ -77,10 +80,13 @@ fn main() {
         crossover_count: 2,
         mutate_count: 2,
         elitism_count: 2,
+        mutation_config: MutationConfig {
+            gene_mutation_chance: 0.3,
+        },
     };
     let mut p: Population<IntegerArray> = Population::new(config);
 
-    (0..1000).for_each(|i| {
+    (0..10).for_each(|i| {
         p.tick();
         let best = p.get_best_member();
         println!("Gen {i}: {:?}", best);

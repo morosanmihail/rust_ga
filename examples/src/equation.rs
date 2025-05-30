@@ -1,11 +1,11 @@
 use std::{collections::VecDeque, rc::Rc};
 
 use ga::genome::{
-    Crossover, Fitness, FitnessRetrieve, Generate, Genome, Mutate, Population, PopulationConfig,
+    Crossover, Fitness, FitnessRetrieve, Generate, Genome, Mutate, MutationConfig, Population,
+    PopulationConfig,
 };
 use rand::Rng;
 
-const ALLELE_MUT_CHANCE: i32 = 10;
 pub const MAX_DEPTH: usize = 5;
 pub const NR_VARS: usize = 2;
 pub const MAX_VALUE: i64 = 255;
@@ -139,27 +139,27 @@ struct GATree {
 }
 
 impl Mutate for GATree {
-    fn mutate(&self) -> Self {
+    fn mutate(&self, config: &MutationConfig) -> Self {
         let tree = &self.inner.data;
 
-        fn traverse(root: &Child) -> Child {
+        fn traverse(root: &Child, config: &MutationConfig) -> Child {
             let mut rng = rand::thread_rng();
 
             match root {
                 None => None,
                 Some(node) => {
-                    if rng.gen::<i32>() % 100 < ALLELE_MUT_CHANCE {
+                    if rng.gen::<i32>() % 100 < ((100.0 * config.gene_mutation_chance) as i32) {
                         random_node(node.depth())
                     } else {
-                        let new_left = traverse(&node.left);
-                        let new_right = traverse(&node.right);
+                        let new_left = traverse(&node.left, config);
+                        let new_right = traverse(&node.right, config);
                         Node::new(node.value.clone(), new_left, new_right)
                     }
                 }
             }
         }
 
-        let new_root = traverse(&tree.root);
+        let new_root = traverse(&tree.root, config);
         GATree {
             inner: Genome {
                 data: Tree { root: new_root },
@@ -289,6 +289,9 @@ fn main() {
         crossover_count: 2,
         mutate_count: 2,
         elitism_count: 2,
+        mutation_config: MutationConfig {
+            gene_mutation_chance: 0.3,
+        },
     };
     let mut p: Population<GATree> = Population::new(config);
 
