@@ -1,51 +1,34 @@
-use rand::{Rng, seq::SliceRandom};
+use rand::seq::SliceRandom;
 
-const POP_SIZE: usize = 10;
-
-
+const POP_SIZE: usize = 100;
+const POP_MUT_COUNT: usize = 20;
 const POP_MUT_CHANCE: i32 = 10;
+const POP_CROSS_COUNT: i32 = 20;
 const POP_CROSS_CHANCE: i32 = 20;
+const ELITISM_COUNT: usize = 10;
 
-#[derive(Debug, Default)]
-pub struct Genome<T: Clone + Default + Copy> {
-    pub data: Vec<T>,
-    pub fitness: Option<T>,
+#[derive(Debug, Default, Clone)]
+pub struct Genome<T: Clone + Default> {
+    pub data: T,
+    pub fitness: Option<f64>,
 }
 
-impl<T: Clone + Default + Copy> Genome<T> {
-    pub fn crossover(&self, other: &Genome<T>) -> Genome<T> {
-        let mut rng = rand::thread_rng();
-
-        let len_a = self.data.len();
-        let len_b = other.data.len();
-
-        let amount = rng.gen_range(1..=len_b);
-        let new_slice : Vec<T> = other.data.choose_multiple(&mut rng, amount).cloned().collect();
-
-        let start_a = rng.gen_range(0..len_a);
-        let end_a = rng.gen_range(start_a..len_a);
-
-        let mut new_data: Vec<T> = Vec::new();
-        let mut inserted = false;
-        for (i, v) in self.data.iter().enumerate() {
-            if i < start_a || i > end_a {
-                new_data.push(*v);
-            } else {
-                if !inserted {
-                    for n in new_slice.iter() {
-                        new_data.push(*n);
-                    }
-                    inserted = true;
-                }
-            }
-        }
-
-        Genome { data: new_data, ..Default::default() }
-    }
+pub trait Crossover {
+    fn crossover(&self, other: &Self) -> Self;
 }
 
 pub trait Fitness {
-    fn calculate_fitness(&mut self) -> Option<i64>;
+    fn calculate_fitness(&mut self) -> Option<f64>;
+}
+
+pub trait FitnessRetrieve {
+    fn get_fitness(&self) -> Option<f64>;
+}
+
+impl<T: Default + Clone> FitnessRetrieve for Genome<T> {
+    fn get_fitness(&self) -> Option<f64> {
+        self.fitness
+    }
 }
 
 pub trait Mutate {
@@ -57,27 +40,80 @@ pub trait Generate {
 }
 
 #[derive(Debug)]
-pub struct Population<T: Generate + Mutate + Fitness> {
+pub struct Population<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default> {
     pub members: Vec<T>,
 }
 
-impl<T: Generate + Mutate + Fitness> Population<T> {
+impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Clone> Population<T> {
     pub fn new() -> Population<T> {
         let mut members: Vec<T> = Vec::new();
         for _ in 1..=POP_SIZE {
-            // members.push(Genome::new());
             members.push(T::generate());
         }
-        Population { members: members }
+        Population { members }
+    }
+
+    pub fn sort_members(&mut self) {
+        self.members.sort_by(|a, b| {
+            a.get_fitness()
+                .partial_cmp(&b.get_fitness())
+                .unwrap_or(std::cmp::Ordering::Less)
+        });
+    }
+
+    pub fn get_best_member(&mut self) -> &T {
+        self.sort_members();
+        &self.members[0]
     }
 
     pub fn tick(&mut self) {
-        let new_pop : Vec<T> = Vec::new();
-        // Select biased towards top performers
-        // ..this needs running calculate_fitness on all
-        // Then randomly choose whether to crossover between chosen, or mutate
-        // Repeat until
-        // Replace old population with new one
+        let mut rng = rand::thread_rng();
+        let mut new_pop: Vec<T> = Vec::new();
+
+        self.members.iter_mut().for_each(|m| {
+            m.calculate_fitness();
+        });
+        self.sort_members();
+
+        // Elitism first
+        new_pop.extend(
+            self.members
+                .iter()
+                .take(ELITISM_COUNT)
+                .cloned()
+                .collect::<Vec<_>>(),
+        );
+        println!("{}", new_pop.len());
+
+        // Then mutation
+        (0..POP_MUT_COUNT).for_each(|_| {
+            let mutatable_member = self.members.choose(&mut rng);
+            if let Some(t) = mutatable_member {
+                let mut m = t.mutate();
+                m.calculate_fitness();
+                new_pop.push(m);
+            }
+        });
+        println!("{}", new_pop.len());
+
+        // Then crossover
+        (0..POP_CROSS_COUNT).for_each(|_| {
+            let crossoverable_members: Vec<&T> =
+                self.members.choose_multiple(&mut rng, 2).collect();
+            let mut crossoverd_member =
+                crossoverable_members[0].crossover(crossoverable_members[1]);
+            crossoverd_member.calculate_fitness();
+            new_pop.push(crossoverd_member);
+        });
+        println!("{}", new_pop.len());
+
+        // Then newly generated ones
+        (new_pop.len()..POP_SIZE).for_each(|_| {
+            let mut generated_member = T::generate();
+            generated_member.calculate_fitness();
+            new_pop.push(generated_member);
+        });
+
         self.members = new_pop;
     }
 }

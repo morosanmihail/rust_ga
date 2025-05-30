@@ -1,0 +1,16 @@
+[package]
+name = "examples"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "basic_integer_array"
+path = "src/basic_integer_array.rs"
+
+[[bin]]
+name = "equation"
+path = "src/equation.rs"
+
+[dependencies]
+rand.workspace = true
+ga = {path = "../ga"}
