@@ -174,7 +174,7 @@ mod tests {
         p.tick();
 
         let json_string = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3}},\"generation\":3}", &json_string);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3}},\"generation\":3,\"seed\":[61,240,161,170,168,40,224,71,3,3,129,86,151,76,130,42,28,222,7,123,91,195,241,6,231,203,202,179,218,241,247,167]}", &json_string);
     }
 
     impl Mutate for i32 {
