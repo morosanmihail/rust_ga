@@ -64,8 +64,8 @@ impl<T: Generate + Crossover + Mutate + Fitness + FitnessRetrieve + Default + Cl
 
     pub fn sort_members(&mut self) {
         self.members.sort_by(|a, b| {
-            a.get_fitness()
-                .partial_cmp(&b.get_fitness())
+            b.get_fitness()
+                .partial_cmp(&a.get_fitness())
                 .unwrap_or(std::cmp::Ordering::Less)
         });
     }
