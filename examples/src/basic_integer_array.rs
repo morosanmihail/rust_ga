@@ -77,10 +77,10 @@ impl Default for IntegerArray {
 
 fn main() {
     let config = PopulationConfig {
-        pop_size: 10,
-        crossover_count: 2,
-        mutate_count: 2,
-        elitism_count: 2,
+        pop_size: 100,
+        crossover_count: 20,
+        mutate_count: 20,
+        elitism_count: 4,
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },

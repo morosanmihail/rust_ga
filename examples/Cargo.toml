@@ -11,6 +11,12 @@ path = "src/basic_integer_array.rs"
 name = "equation"
 path = "src/equation.rs"
 
+
+[[bin]]
+name = "neural_network"
+path = "src/neural_network.rs"
+
 [dependencies]
 rand.workspace = true
 ga = {path = "../ga"}
+rand_distr = "*"

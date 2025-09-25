@@ -239,7 +239,8 @@ impl Fitness for GATree {
                 Some(root) => {
                     let actual = root.evaluate(i as f64, y as f64) % (i64::MAX as f64);
                     // This is the function we're trying to approximate
-                    let real = i * i + y * y + 0;
+                    // let real = i * i + y * y + 0;
+                    let real = i + 5 * y + 6;
                     let diff = (real - actual.round() as i64).abs();
                     match diff {
                         0 => {}
@@ -284,9 +285,9 @@ pub fn random_node(depth: usize, seed: [u8; 32]) -> Child {
 
 fn main() {
     let config = PopulationConfig {
-        pop_size: 30,
-        crossover_count: 8,
-        mutate_count: 8,
+        pop_size: 50,
+        crossover_count: 15,
+        mutate_count: 15,
         elitism_count: 6,
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
@@ -295,7 +296,7 @@ fn main() {
     };
     let mut p: Population<GATree> = Population::new(config);
 
-    (0..1000).for_each(|i| {
+    (0..10000).for_each(|i| {
         p.tick();
         let best = p.get_best_member();
         println!(
