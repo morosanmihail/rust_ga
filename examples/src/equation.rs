@@ -1,24 +1,25 @@
-use std::{collections::VecDeque, rc::Rc};
+use std::{collections::VecDeque, sync::Arc};
 
 use ga::{
     population::{Genome, MutationConfig, Population, PopulationConfig},
     traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate},
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 pub const MAX_DEPTH: usize = 5;
 pub const NR_VARS: usize = 2;
 pub const MAX_VALUE: i64 = 255;
 pub const MIN_VALUE: i64 = -255;
 
-type Child = Option<Rc<Node>>;
+type Child = Option<Arc<Node>>;
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Tree {
     pub root: Child,
 }
 
-#[derive(Default, Clone, Debug)]
+#[derive(Default, Clone, Debug, Serialize, Deserialize)]
 pub struct Node {
     value: String,
     left: Child,
@@ -83,7 +84,7 @@ impl Node {
 
     pub fn get_nth_node(&self, n: usize) -> Child {
         let mut queue: VecDeque<Child> = VecDeque::new();
-        queue.push_back(Some(Rc::new(self.clone())));
+        queue.push_back(Some(Arc::new(self.clone())));
         let mut cindex = 0;
 
         let mut last_element: Child = None;
@@ -121,7 +122,7 @@ impl Node {
     }
 
     pub fn new(value: String, left: Child, right: Child) -> Child {
-        Some(Rc::new(Node { value, left, right }))
+        Some(Arc::new(Node { value, left, right }))
     }
 }
 
@@ -131,7 +132,7 @@ impl Tree {
     }
 }
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Serialize, Deserialize)]
 struct GATree {
     inner: Genome<Tree>,
 }
@@ -292,6 +293,7 @@ fn main() {
             gene_mutation_chance: 0.3,
         },
         seed: rand::thread_rng().gen(),
+        preseeded_population: vec![GATree::generate(rand::thread_rng().gen())],
     };
     let mut p: Population<GATree> = Population::new(config);
 
@@ -304,4 +306,10 @@ fn main() {
             best.inner.data.root.clone().unwrap().print()
         );
     });
+
+    // Serialize
+    // let json_string = serde_json::to_string(&p).unwrap();
+    // println!("JSON: {json_string}");
+    // let toml_string = toml::to_string_pretty(&p);
+    // println!("TOML: {toml_string:?}");
 }

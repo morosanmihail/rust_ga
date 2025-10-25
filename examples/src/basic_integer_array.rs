@@ -85,6 +85,7 @@ fn main() {
             gene_mutation_chance: 0.3,
         },
         seed: rand::thread_rng().gen(),
+        preseeded_population: vec![],
     };
     let mut p: Population<IntegerArray> = Population::new(config);
 
