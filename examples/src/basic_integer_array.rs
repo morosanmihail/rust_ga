@@ -8,7 +8,7 @@ use rand::{rngs::StdRng, Rng, SeedableRng};
 #[derive(Clone, Copy, Default, Debug)]
 struct Integer(i64);
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 struct IntegerArray(ItemArray<Integer>);
 
 const MIN_VALUE: i64 = -255;
@@ -66,12 +66,6 @@ impl FitnessRetrieve for IntegerArray {
 impl Mutate for IntegerArray {
     fn mutate(&self, config: &MutationConfig, seed: [u8; 32]) -> Self {
         IntegerArray(self.0.mutate(config, seed))
-    }
-}
-
-impl Default for IntegerArray {
-    fn default() -> Self {
-        IntegerArray(ItemArray::default())
     }
 }
 

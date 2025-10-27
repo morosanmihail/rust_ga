@@ -75,7 +75,7 @@ impl Node {
                 res.push_str(&l_res);
                 res.push_str(&self.value);
                 res.push_str(&r_res);
-                res.push_str(")");
+                res.push(')');
                 res
             }
             _ => self.value.clone(),
@@ -240,7 +240,7 @@ impl Fitness for GATree {
                 Some(root) => {
                     let actual = root.evaluate(i as f64, y as f64) % (i64::MAX as f64);
                     // This is the function we're trying to approximate
-                    let real = i * i + y * y + 0;
+                    let real = i * i + y * y + 1;
                     let diff = (real - actual.round() as i64).abs();
                     match diff {
                         0 => {}
@@ -273,7 +273,7 @@ pub fn random_node(depth: usize, seed: [u8; 32]) -> Child {
             Node::new(var_name, None, None)
         }
         (2..=6, _) => {
-            let ops = vec!['+', '-', '*', '/', '^'];
+            let ops = ['+', '-', '*', '/', '^'];
             let value = ops[val - 2].to_string();
             let left = random_node(depth - 1, rng.gen());
             let right = random_node(depth - 1, rng.gen());
