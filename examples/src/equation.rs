@@ -44,10 +44,7 @@ impl Node {
                         }
                     }
                     ("^", 1) => left.powf(right),
-                    _ => match self.value.parse() {
-                        Ok(v) => v,
-                        _ => 0.0,
-                    },
+                    _ => self.value.parse().unwrap_or(0.0),
                 }
             }
             (None, None) => match self.value.get(0..1).unwrap_or("bork") {
@@ -56,10 +53,7 @@ impl Node {
                     "1" => x2,
                     _ => 0.0,
                 },
-                _ => match self.value.parse() {
-                    Ok(v) => v,
-                    _ => 0.0,
-                },
+                _ => self.value.parse().unwrap_or(0.0),
             },
             _ => 0.0,
         }
@@ -292,20 +286,22 @@ fn main() {
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },
-        seed: rand::thread_rng().gen(),
-        preseeded_population: vec![GATree::generate(rand::thread_rng().gen())],
+        // seed: rand::thread_rng().gen(),
+        seed: [1; 32],
+        preseeded_population: vec![],
     };
     let mut p: Population<GATree> = Population::new(config);
 
-    (0..1000).for_each(|i| {
-        p.tick();
+    for i in 0..5000 {
+        // p.tick();
+        p.tick_parallel();
         let best = p.get_best_member();
         println!(
             "Gen {i}: Fitness: {} - {:?}",
             best.get_fitness().unwrap(),
             best.inner.data.root.clone().unwrap().print()
         );
-    });
+    }
 
     // Serialize
     // let json_string = serde_json::to_string(&p).unwrap();

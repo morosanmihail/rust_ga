@@ -40,13 +40,13 @@ impl Generate for Integer {
 impl Mutate for Integer {
     fn mutate(&self, _config: &MutationConfig, seed: [u8; 32]) -> Self {
         let mut rng: StdRng = SeedableRng::from_seed(seed);
-        Integer(self.0 + rng.gen_range(MIN_VALUE / 10..=MAX_VALUE / 10))
+        Integer(self.0 + rng.gen_range(MIN_VALUE / 100..=MAX_VALUE / 100))
     }
 }
 
 impl Generate for IntegerArray {
     fn generate(seed: [u8; 32]) -> Self {
-        IntegerArray(ItemArray::generate_length(2, 4, seed))
+        IntegerArray(ItemArray::generate_length(3, 10, seed))
         // IntegerArray(ItemArray::generate())
     }
 }
@@ -71,10 +71,10 @@ impl Mutate for IntegerArray {
 
 fn main() {
     let config = PopulationConfig {
-        pop_size: 10,
-        crossover_count: 2,
-        mutate_count: 2,
-        elitism_count: 2,
+        pop_size: 100,
+        crossover_count: 20,
+        mutate_count: 20,
+        elitism_count: 10,
         mutation_config: MutationConfig {
             gene_mutation_chance: 0.3,
         },
@@ -85,6 +85,7 @@ fn main() {
 
     (0..10000).for_each(|i| {
         p.tick();
+        // p.tick_parallel();
         let best = p.get_best_member();
         println!("Gen {i}: {:?}", best);
     });
