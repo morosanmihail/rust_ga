@@ -204,7 +204,7 @@ mod tests {
         p.tick();
 
         let json_string = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[194,153,183,159,34,72,149,228,138,147,183,238,122,49,198,59,71,25,17,126,81,70,27,202,105,232,186,46,14,39,39,191],\"num_cpus\":16}", &json_string);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[194,153,183,159,34,72,149,228,138,147,183,238,122,49,198,59,71,25,17,126,81,70,27,202,105,232,186,46,14,39,39,191]}", &json_string);
     }
 
     impl Mutate for i32 {
@@ -257,13 +257,13 @@ mod tests {
         let mut p: Population<i64> = Population::new(config);
 
         let json_string = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,1,1,1,1,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":1,\"seed\":[61,119,195,211,231,165,151,165,122,239,25,225,34,155,137,19,36,226,231,187,28,137,64,231,241,187,37,96,44,109,235,7],\"num_cpus\":16}", &json_string);
+        assert_eq!("{\"members\":[1,1,1,1,1,1,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":1,\"seed\":[61,119,195,211,231,165,151,165,122,239,25,225,34,155,137,19,36,226,231,187,28,137,64,231,241,187,37,96,44,109,235,7]}", &json_string);
         p.tick();
         let json_string_saved = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[249,208,109,107,37,33,235,161,187,143,43,252,141,78,107,106,236,78,206,58,78,254,64,113,134,52,253,114,200,93,157,62],\"num_cpus\":16}", &json_string_saved);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[249,208,109,107,37,33,235,161,187,143,43,252,141,78,107,106,236,78,206,58,78,254,64,113,134,52,253,114,200,93,157,62]}", &json_string_saved);
         p.tick();
         let json_string_third = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[194,153,183,159,34,72,149,228,138,147,183,238,122,49,198,59,71,25,17,126,81,70,27,202,105,232,186,46,14,39,39,191],\"num_cpus\":16}", &json_string_third);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[194,153,183,159,34,72,149,228,138,147,183,238,122,49,198,59,71,25,17,126,81,70,27,202,105,232,186,46,14,39,39,191]}", &json_string_third);
 
         // Deserialise and test
         let mut p: Population<i64> = serde_json::from_str(&json_string_saved).unwrap();
