@@ -61,17 +61,7 @@ impl Node {
 
     pub fn print(&self) -> String {
         match (self.left.as_ref(), self.right.as_ref()) {
-            (Some(l), Some(r)) => {
-                let l_res = l.print();
-                let r_res = r.print();
-
-                let mut res = String::from("(");
-                res.push_str(&l_res);
-                res.push_str(&self.value);
-                res.push_str(&r_res);
-                res.push(')');
-                res
-            }
+            (Some(l), Some(r)) => format!("({} {} {})", l.print(), self.value, r.print()),
             _ => self.value.clone(),
         }
     }
@@ -304,8 +294,8 @@ fn main() {
     }
 
     // Serialize
-    // let json_string = serde_json::to_string(&p).unwrap();
-    // println!("JSON: {json_string}");
-    // let toml_string = toml::to_string_pretty(&p);
-    // println!("TOML: {toml_string:?}");
+    let json_string = serde_json::to_string(&p).unwrap();
+    println!("JSON: {json_string}");
+    let toml_string = toml::to_string_pretty(&p);
+    println!("TOML: {toml_string:?}");
 }
