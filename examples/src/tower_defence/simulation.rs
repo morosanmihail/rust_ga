@@ -1,7 +1,7 @@
 use std::collections::HashMap;
-use crate::builder::Builder;
-use crate::enemy::{Enemy, EnemyAction};
-use crate::map::Map;
+use super::builder::Builder;
+use super::enemy::{Enemy, EnemyAction};
+use super::map::{Map, Structure};
 
 pub struct Config {
     /// Ticks before first enemy spawn.
@@ -19,7 +19,6 @@ pub struct Config {
     pub tower_damage: u32,
     pub tower_hp: u32,
     pub wall_hp: u32,
-    pub builder_hp: u32,
 }
 
 impl Default for Config {
@@ -34,7 +33,6 @@ impl Default for Config {
             tower_damage: 3,
             tower_hp: 20,
             wall_hp: 15,
-            builder_hp: 50,
         }
     }
 }
@@ -54,7 +52,6 @@ impl Simulation {
         Simulation { map, builder, enemies: Vec::new(), tick: 0, config, enemies_killed: 0, next_enemy_id: 0 }
     }
 
-    pub fn builder_done(&self) -> bool { self.builder.is_idle() }
     pub fn is_game_over(&self) -> bool { !self.builder.is_alive() }
 
     pub fn tick(&mut self) {
@@ -82,7 +79,7 @@ impl Simulation {
         for y in 0..self.map.height {
             for x in 0..self.map.width {
                 if let Some(s) = &self.map.get(x, y).structure {
-                    if matches!(s, crate::map::Structure::Tower { .. }) {
+                    if matches!(s, Structure::Tower { .. }) {
                         tower_positions.push((x, y));
                     }
                 }

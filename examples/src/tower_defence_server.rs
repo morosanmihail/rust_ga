@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod tower_defence;
+
 use std::sync::{Arc, RwLock};
 
 use axum::{extract::State, response::Html, routing::get, Json, Router};

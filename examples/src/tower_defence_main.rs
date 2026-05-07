@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod tower_defence;
+
 use ga::population::{MutationConfig, Population, PopulationConfig};
 use ga::traits::FitnessRetrieve;
 use rand::Rng;
@@ -30,7 +33,7 @@ fn main() {
 
     let mut pop: Population<BuilderGenome> = Population::new(config);
 
-    let MAX_FITNESS: f64 = max_fitness();
+    let max_fitness_val: f64 = max_fitness();
     let mut solved_gen = None;
 
     for gen in 1..=GENERATIONS {
@@ -38,10 +41,10 @@ fn main() {
         let best = pop.get_best_member();
         let fitness = best.get_fitness().unwrap_or(0.0);
         let len = best.len();
-        if gen % 10 == 0 || gen <= 5 || fitness >= MAX_FITNESS {
+        if gen % 10 == 0 || gen <= 5 || fitness >= max_fitness_val {
             println!("Gen {:>4}: best fitness = {:>7.1}  instrs = {}", gen, fitness, len);
         }
-        if fitness >= MAX_FITNESS {
+        if fitness >= max_fitness_val {
             solved_gen = Some(gen);
             break;
         }

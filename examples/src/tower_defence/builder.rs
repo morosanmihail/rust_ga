@@ -1,5 +1,5 @@
 use std::collections::VecDeque;
-use crate::map::{Map, Structure, Terrain};
+use super::map::{Map, Structure, Terrain};
 
 #[derive(Clone, Debug)]
 pub enum Instruction {
@@ -46,10 +46,6 @@ impl Builder {
 
     pub fn push(&mut self, instr: Instruction) {
         self.instructions.push_back(instr);
-    }
-
-    pub fn is_idle(&self) -> bool {
-        matches!(self.state, State::Idle) && self.instructions.is_empty()
     }
 
     pub fn is_alive(&self) -> bool {

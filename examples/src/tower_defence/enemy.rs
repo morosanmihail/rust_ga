@@ -1,4 +1,4 @@
-use crate::map::Map;
+use super::map::Map;
 
 #[derive(Debug)]
 pub struct Enemy {

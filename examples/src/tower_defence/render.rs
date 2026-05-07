@@ -1,6 +1,6 @@
 use std::collections::HashMap;
-use crate::map::Terrain;
-use crate::simulation::Simulation;
+use super::map::Terrain;
+use super::simulation::Simulation;
 
 /// ASCII render of current simulation state.
 ///
@@ -66,4 +66,3 @@ pub fn render(sim: &Simulation) {
     }
     println!();
 }
-

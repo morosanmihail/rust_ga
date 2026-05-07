@@ -1,6 +1,4 @@
 use std::collections::{HashMap, HashSet, VecDeque};
-use rand::Rng;
-use rand::seq::SliceRandom;
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum Terrain {
@@ -29,13 +27,6 @@ impl Structure {
                 *hp == 0
             }
             Structure::Bridge => false,
-        }
-    }
-
-    pub fn hp(&self) -> Option<u32> {
-        match self {
-            Structure::Tower { hp } | Structure::Wall { hp } => Some(*hp),
-            Structure::Bridge => None,
         }
     }
 
@@ -101,31 +92,6 @@ impl Map {
         let height = cells.len();
         let width = if height > 0 { cells[0].len() } else { 0 };
         Map { width, height, cells, spawn_points }
-    }
-
-    pub fn new_random<R: Rng>(width: usize, height: usize, rng: &mut R, num_spawns: usize) -> Self {
-        let cells: Vec<Vec<Cell>> = (0..height).map(|_| {
-            (0..width).map(|_| {
-                let terrain = match rng.gen_range(0..10u32) {
-                    0..=5 => Terrain::Plain,
-                    6..=7 => Terrain::Rock,
-                    _ => Terrain::Water,
-                };
-                Cell::new(terrain)
-            }).collect()
-        }).collect();
-
-        let mut map = Map { width, height, cells, spawn_points: Vec::new() };
-        let num_spawns = num_spawns.clamp(1, 4);
-
-        let mut edge: Vec<(usize, usize)> = Vec::new();
-        for x in 0..width { edge.push((x, 0)); edge.push((x, height - 1)); }
-        for y in 1..height.saturating_sub(1) { edge.push((0, y)); edge.push((width - 1, y)); }
-        for &(x, y) in &edge { map.cells[y][x].terrain = Terrain::Plain; }
-
-        edge.shuffle(rng);
-        map.spawn_points = edge.into_iter().take(num_spawns).collect();
-        map
     }
 
     pub fn get(&self, x: usize, y: usize) -> &Cell { &self.cells[y][x] }

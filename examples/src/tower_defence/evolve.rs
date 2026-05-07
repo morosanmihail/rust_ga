@@ -13,7 +13,7 @@ pub fn set_map_seed(seed: u64) {
     MAP_SEED.store(seed, Ordering::Relaxed);
 }
 
-use crate::{
+use super::{
     builder::{Builder, Instruction},
     map::{Cell, Map, Terrain},
     simulation::{Config, Simulation},
@@ -126,7 +126,6 @@ pub fn eval_config() -> Config {
         tower_damage: 4,
         tower_hp: 20,
         wall_hp: 15,
-        builder_hp: BUILDER_HP,
     }
 }
 

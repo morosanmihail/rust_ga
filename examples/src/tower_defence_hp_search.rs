@@ -1,3 +1,6 @@
+#[allow(dead_code)]
+mod tower_defence;
+
 /// Calibration tool: run with ENEMY_HP=<n> to measure GA convergence speed.
 /// Prints gen-by-gen best fitness and average gens to reach max fitness (350).
 ///
@@ -7,7 +10,7 @@ use ga::population::{MutationConfig, Population, PopulationConfig};
 use ga::traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate};
 use rand::Rng;
 
-use tower_defence::builder::{Builder, Instruction};
+use tower_defence::builder::Builder;
 use tower_defence::evolve::{GeneInstruction, make_eval_map, BUILDER_HP, BUILDER_START};
 use tower_defence::simulation::{Config, Simulation};
 
@@ -31,7 +34,6 @@ fn make_config(hp: u32) -> Config {
         tower_damage: 4,
         tower_hp: 20,
         wall_hp: 15,
-        builder_hp: BUILDER_HP,
     }
 }
 

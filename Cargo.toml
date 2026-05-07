@@ -1,5 +1,5 @@
 [workspace]
-members = ["ga", "examples", "tower_defence"]
+members = ["ga", "examples"]
 resolver = "2"
 
 [workspace.dependencies]

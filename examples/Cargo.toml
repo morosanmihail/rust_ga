@@ -15,7 +15,24 @@ path = "src/equation.rs"
 name = "maze_server"
 path = "src/maze_server.rs"
 
+[[bin]]
+name = "tower_defence"
+path = "src/tower_defence_main.rs"
+
+[[bin]]
+name = "tower_defence_hp_search"
+path = "src/tower_defence_hp_search.rs"
+
+[[bin]]
+name = "tower_defence_server"
+path = "src/tower_defence_server.rs"
+
+[[bin]]
+name = "swarm"
+path = "src/swarm_main.rs"
+
 [dependencies]
+rayon.workspace = true
 rand.workspace = true
 ga = {path = "../ga"}
 serde_json.workspace = true
