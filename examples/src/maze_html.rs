@@ -1,0 +1,329 @@
+pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maze GA Solver</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #0d1117;
+      color: #c9d1d9;
+      font-family: 'Courier New', monospace;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 24px 16px;
+      gap: 16px;
+    }
+    h1 {
+      color: #58a6ff;
+      font-size: 1.4rem;
+      letter-spacing: 4px;
+      text-transform: uppercase;
+    }
+    #stats {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .stat {
+      background: #161b22;
+      border: 1px solid #30363d;
+      border-radius: 8px;
+      padding: 8px 18px;
+      text-align: center;
+      min-width: 110px;
+    }
+    .stat-label {
+      font-size: 10px;
+      color: #8b949e;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .stat-value {
+      font-size: 18px;
+      font-weight: bold;
+      color: #58a6ff;
+      margin-top: 3px;
+    }
+    .stat-value.ok  { color: #3fb950; }
+    .stat-value.bad { color: #f85149; }
+    #progress-wrap {
+      width: 100%;
+      max-width: 680px;
+    }
+    #progress-label {
+      font-size: 11px;
+      color: #8b949e;
+      margin-bottom: 4px;
+    }
+    #progress-bar {
+      width: 100%;
+      height: 4px;
+      background: #21262d;
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    #progress-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #1f6feb, #58a6ff);
+      border-radius: 2px;
+      transition: width 0.4s ease;
+      width: 0%;
+    }
+    #canvas-wrap {
+      position: relative;
+    }
+    canvas {
+      display: block;
+      border: 1px solid #21262d;
+      border-radius: 6px;
+      max-width: 100%;
+    }
+    #legend {
+      display: flex;
+      gap: 18px;
+      font-size: 12px;
+      color: #8b949e;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .leg { display: flex; align-items: center; gap: 5px; }
+    .dot { width: 10px; height: 10px; border-radius: 50%; flex-shrink: 0; }
+    #status-line {
+      font-size: 11px;
+      color: #484f58;
+      letter-spacing: 1px;
+    }
+  </style>
+</head>
+<body>
+  <h1>Maze GA Solver</h1>
+
+  <div id="stats">
+    <div class="stat">
+      <div class="stat-label">Generation</div>
+      <div class="stat-value" id="gen">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Score</div>
+      <div class="stat-value" id="score">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Path Steps</div>
+      <div class="stat-value" id="steps">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Solved</div>
+      <div class="stat-value" id="solved">—</div>
+    </div>
+    <div class="stat">
+      <div class="stat-label">Maze #</div>
+      <div class="stat-value" id="maze-id">—</div>
+    </div>
+  </div>
+
+  <div id="progress-wrap">
+    <div id="progress-label">Generation progress</div>
+    <div id="progress-bar"><div id="progress-fill"></div></div>
+  </div>
+
+  <div id="canvas-wrap">
+    <canvas id="maze"></canvas>
+  </div>
+
+  <div id="legend">
+    <div class="leg"><div class="dot" style="background:#3fb950"></div>Start</div>
+    <div class="leg"><div class="dot" style="background:#f85149"></div>Exit</div>
+    <div class="leg"><div class="dot" style="background:#e3b341"></div>Prize</div>
+    <div class="leg"><div class="dot" style="background:#3fb950;opacity:.5"></div>Prize collected</div>
+    <div class="leg"><div class="dot" style="background:#58a6ff"></div>Path</div>
+  </div>
+
+  <div id="status-line">next update in <span id="countdown">10</span>s</div>
+
+  <script>
+    const canvas = document.getElementById('maze');
+    const ctx = canvas.getContext('2d');
+
+    let animTimer = null;
+    let lastMazeId = -1;
+    let prevScore = null;
+
+    const C = {
+      bg:         '#0d1117',
+      wall:       '#30363d',
+      border:     '#388bfd',
+      path:       '#388bfd',
+      pathGlow:   'rgba(56,139,253,0.12)',
+      head:       '#79c0ff',
+      start:      '#3fb950',
+      end:        '#f85149',
+      prize:      '#e3b341',
+      prizeGot:   '#3fb950',
+    };
+
+    function cellSize(W) {
+      const max = Math.min(window.innerWidth - 32, 680);
+      return Math.max(16, Math.floor(max / W));
+    }
+
+    function drawFrame(data, step) {
+      const { width: W, height: H, cells, prizes, path } = data;
+      const CS = cellSize(W);
+      canvas.width  = W * CS + 1;
+      canvas.height = H * CS + 1;
+
+      ctx.fillStyle = C.bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Walls
+      ctx.lineWidth = 1.5;
+      ctx.strokeStyle = C.wall;
+      for (let y = 0; y < H; y++) {
+        for (let x = 0; x < W; x++) {
+          const c = cells[y * W + x];
+          const px = x * CS, py = y * CS;
+          ctx.beginPath();
+          if (c.n) { ctx.moveTo(px,      py);      ctx.lineTo(px + CS, py);      }
+          if (c.e) { ctx.moveTo(px + CS, py);      ctx.lineTo(px + CS, py + CS); }
+          if (c.s) { ctx.moveTo(px,      py + CS); ctx.lineTo(px + CS, py + CS); }
+          if (c.w) { ctx.moveTo(px,      py);      ctx.lineTo(px,      py + CS); }
+          ctx.stroke();
+        }
+      }
+
+      // Outer border
+      ctx.strokeStyle = C.border;
+      ctx.lineWidth = 2;
+      ctx.strokeRect(0.5, 0.5, W * CS, H * CS);
+
+      // Track visited cells for prize collection
+      const visited = new Set();
+      const visLen = Math.min(step, path.length);
+      for (let i = 0; i < visLen; i++) visited.add(`${path[i][0]},${path[i][1]}`);
+
+      // Prizes
+      prizes.forEach(([px, py]) => {
+        const cx = px * CS + CS / 2, cy = py * CS + CS / 2;
+        const got = visited.has(`${px},${py}`);
+        ctx.globalAlpha = got ? 0.45 : 1.0;
+        ctx.fillStyle = got ? C.prizeGot : C.prize;
+        ctx.beginPath();
+        ctx.arc(cx, cy, CS * 0.27, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1.0;
+      });
+
+      // Path
+      if (visLen > 0) {
+        const pts = path.slice(0, visLen).map(([x, y]) => [x * CS + CS / 2, y * CS + CS / 2]);
+
+        // Glow
+        ctx.strokeStyle = C.pathGlow;
+        ctx.lineWidth = CS * 0.75;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+        ctx.beginPath();
+        pts.forEach(([cx, cy], i) => i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy));
+        ctx.stroke();
+
+        // Line
+        ctx.strokeStyle = C.path;
+        ctx.lineWidth = CS * 0.22;
+        ctx.beginPath();
+        pts.forEach(([cx, cy], i) => i === 0 ? ctx.moveTo(cx, cy) : ctx.lineTo(cx, cy));
+        ctx.stroke();
+
+        // Head
+        const [hx, hy] = pts[pts.length - 1];
+        ctx.fillStyle = C.head;
+        ctx.beginPath();
+        ctx.arc(hx, hy, CS * 0.32, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Start / End markers
+      const r = CS * 0.32;
+      ctx.fillStyle = C.start;
+      ctx.beginPath();
+      ctx.arc(CS / 2, CS / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+
+      ctx.fillStyle = C.end;
+      ctx.beginPath();
+      ctx.arc((W - 1) * CS + CS / 2, (H - 1) * CS + CS / 2, r, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function animate(data) {
+      if (animTimer) { clearInterval(animTimer); animTimer = null; }
+      let step = 0;
+      const total = data.path.length;
+      const delay = total > 0 ? Math.max(16, 8000 / total) : 8000;
+
+      drawFrame(data, 0);
+      animTimer = setInterval(() => {
+        step++;
+        drawFrame(data, step);
+        if (step >= total) { clearInterval(animTimer); animTimer = null; }
+      }, delay);
+    }
+
+    async function refresh() {
+      try {
+        const res = await fetch('/api/state');
+        if (!res.ok) return;
+        const data = await res.json();
+
+        document.getElementById('gen').textContent =
+          `${data.generation} / ${data.total_generations}`;
+        const scoreEl = document.getElementById('score');
+        const delta = prevScore !== null ? data.score - prevScore : 0;
+        const deltaHtml = (delta > 0.001)
+          ? ` <span style="color:#3fb950;font-size:14px">(+${delta.toFixed(1)})</span>`
+          : '';
+        scoreEl.innerHTML = data.score.toFixed(1) + deltaHtml;
+        prevScore = data.score;
+        document.getElementById('steps').textContent = data.path.length;
+        document.getElementById('maze-id').textContent = data.maze_id;
+
+        const sv = document.getElementById('solved');
+        sv.textContent = data.solved ? '✓ YES' : '✗ NO';
+        sv.className = 'stat-value ' + (data.solved ? 'ok' : 'bad');
+
+        document.getElementById('progress-fill').style.width =
+          `${(data.generation / data.total_generations) * 100}%`;
+
+        if (data.maze_id !== lastMazeId) prevScore = null;
+
+        // Always re-animate on fetch — shows latest best path
+        animate(data);
+        lastMazeId = data.maze_id;
+      } catch (e) {
+        console.warn('fetch error:', e);
+      }
+    }
+
+    let countdown = 10;
+    const countEl = document.getElementById('countdown');
+    setInterval(() => {
+      countdown = Math.max(0, countdown - 1);
+      countEl.textContent = countdown;
+    }, 1000);
+
+    async function refreshAndReset() {
+      await refresh();
+      countdown = 10;
+      countEl.textContent = countdown;
+    }
+
+    refreshAndReset();
+    setInterval(refreshAndReset, 10000);
+  </script>
+</body>
+</html>
+"####;
