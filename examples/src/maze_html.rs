@@ -105,24 +105,24 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
 
   <div id="stats">
     <div class="stat">
+      <div class="stat-label">Maze #</div>
+      <div class="stat-value" id="maze-id">—</div>
+    </div>
+    <div class="stat">
       <div class="stat-label">Generation</div>
       <div class="stat-value" id="gen">—</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="score-stat" style="visibility:hidden">
       <div class="stat-label">Score</div>
       <div class="stat-value" id="score">—</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="steps-stat" style="visibility:hidden">
       <div class="stat-label">Path Steps</div>
       <div class="stat-value" id="steps">—</div>
     </div>
-    <div class="stat">
+    <div class="stat" id="solved-stat" style="visibility:hidden">
       <div class="stat-label">Solved</div>
       <div class="stat-value" id="solved">—</div>
-    </div>
-    <div class="stat">
-      <div class="stat-label">Maze #</div>
-      <div class="stat-value" id="maze-id">—</div>
     </div>
   </div>
 
@@ -133,6 +133,7 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
 
   <div id="canvas-wrap">
     <canvas id="maze"></canvas>
+    <canvas id="particles" style="position:absolute;top:0;left:0;pointer-events:none"></canvas>
   </div>
 
   <div id="legend">
@@ -148,6 +149,47 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
   <script>
     const canvas = document.getElementById('maze');
     const ctx = canvas.getContext('2d');
+    const pCanvas = document.getElementById('particles');
+    const pCtx = pCanvas.getContext('2d');
+
+    // ── Particles ──────────────────────────────────────────────────────────
+    const particles = [];
+
+    function emitExplosion(cx, cy, color, count = 18) {
+      for (let i = 0; i < count; i++) {
+        const angle = (Math.PI * 2 * i) / count + (Math.random() - 0.5) * 0.4;
+        const speed = 1.8 + Math.random() * 3.5;
+        particles.push({
+          x: cx, y: cy,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          life: 1.0,
+          decay: 0.018 + Math.random() * 0.025,
+          r: 2 + Math.random() * 3,
+          color,
+        });
+      }
+    }
+
+    (function particleLoop() {
+      pCtx.clearRect(0, 0, pCanvas.width, pCanvas.height);
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x  += p.vx;
+        p.y  += p.vy;
+        p.vy += 0.12;
+        p.vx *= 0.97;
+        p.life -= p.decay;
+        if (p.life <= 0) { particles.splice(i, 1); continue; }
+        pCtx.globalAlpha = p.life;
+        pCtx.fillStyle = p.color;
+        pCtx.beginPath();
+        pCtx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+        pCtx.fill();
+      }
+      pCtx.globalAlpha = 1;
+      requestAnimationFrame(particleLoop);
+    })();
 
     let animTimer = null;
     let lastMazeId = -1;
@@ -261,14 +303,42 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
 
     function animate(data) {
       if (animTimer) { clearInterval(animTimer); animTimer = null; }
+      particles.length = 0;
+
       let step = 0;
       const total = data.path.length;
       const delay = total > 0 ? Math.max(16, 8000 / total) : 8000;
+      const CS = cellSize(data.width);
+      const [ex, ey] = [data.width - 1, data.height - 1];
+      const prizeSet = new Set(data.prizes.map(([x, y]) => `${x},${y}`));
+      const exploded = new Set();
 
       drawFrame(data, 0);
+      pCanvas.width  = canvas.width;
+      pCanvas.height = canvas.height;
+
       animTimer = setInterval(() => {
         step++;
         drawFrame(data, step);
+
+        if (step > 0 && step <= total) {
+          const [cx, cy] = data.path[step - 1];
+          const px = cx * CS + CS / 2, py = cy * CS + CS / 2;
+          const key = `${cx},${cy}`;
+
+          if (prizeSet.has(key) && !exploded.has(key)) {
+            exploded.add(key);
+            emitExplosion(px, py, '#e3b341', 20);
+            emitExplosion(px, py, '#ffd700', 10);
+          }
+          if (cx === ex && cy === ey && !exploded.has('end')) {
+            exploded.add('end');
+            emitExplosion(px, py, '#f85149', 35);
+            setTimeout(() => emitExplosion(px, py, '#ff9500', 25), 120);
+            setTimeout(() => emitExplosion(px, py, '#ffffff', 15), 260);
+          }
+        }
+
         if (step >= total) { clearInterval(animTimer); animTimer = null; }
       }, delay);
     }
@@ -310,15 +380,26 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
 
     let countdown = 10;
     const countEl = document.getElementById('countdown');
+    const solvedStat = document.getElementById('solved-stat');
+    const scoreStat  = document.getElementById('score-stat');
+    const stepsStat  = document.getElementById('steps-stat');
     setInterval(() => {
       countdown = Math.max(0, countdown - 1);
       countEl.textContent = countdown;
+      if (countdown <= 4) {
+        solvedStat.style.visibility = 'visible';
+        scoreStat.style.visibility  = 'visible';
+        stepsStat.style.visibility  = 'visible';
+      }
     }, 1000);
 
     async function refreshAndReset() {
       await refresh();
       countdown = 10;
       countEl.textContent = countdown;
+      solvedStat.style.visibility = 'hidden';
+      scoreStat.style.visibility  = 'hidden';
+      stepsStat.style.visibility  = 'hidden';
     }
 
     refreshAndReset();

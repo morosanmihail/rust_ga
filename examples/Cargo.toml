@@ -12,10 +12,6 @@ name = "equation"
 path = "src/equation.rs"
 
 [[bin]]
-name = "maze_solver"
-path = "src/maze_solver.rs"
-
-[[bin]]
 name = "maze_server"
 path = "src/maze_server.rs"
 

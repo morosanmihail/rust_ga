@@ -146,7 +146,16 @@ fn simulate(maze: &MazeData, decisions: &[Decision]) -> (f64, Vec<(usize, usize)
             .filter(|&d| Some(d) != back_dir && !maze.wall(x, y, d))
             .collect();
 
-        if choices.is_empty() { break; }
+        if choices.is_empty() {
+            // Dead end — turn around without consuming a gene.
+            if let Some(back) = back_dir {
+                let (dx, dy) = back.delta();
+                pos = ((x as isize + dx) as usize, (y as isize + dy) as usize);
+                back_dir = Some(back.opposite());
+                path.push(pos);
+            }
+            continue;
+        }
 
         let chosen = if choices.len() == 1 {
             choices[0]
@@ -296,6 +305,7 @@ fn ga_thread(shared: Arc<RwLock<ApiState>>) {
 
         for gen in 0..GENS_PER_MAZE {
             population.tick();
+            std::thread::sleep(std::time::Duration::from_secs(1));
 
             let best = population.get_best_member();
             let maze = get_maze();
