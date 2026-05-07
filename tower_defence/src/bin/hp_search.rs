@@ -68,7 +68,7 @@ impl Fitness for TestGenome {
         }
         let mut sim = Simulation::new(make_eval_map(), builder, make_config(self.enemy_hp));
         for _ in 0..SIM_TICKS { sim.tick(); if sim.is_game_over() { break; } }
-        let fitness = if sim.is_game_over() { sim.tick as f64 } else { SIM_TICKS as f64 + sim.builder.hp as f64 };
+        let fitness = if sim.is_game_over() { sim.tick as f64 + sim.enemies_killed as f64 } else { SIM_TICKS as f64 + sim.builder.hp as f64 + sim.enemies_killed as f64 };
         self.inner.set_fitness(Some(fitness));
         Some(fitness)
     }

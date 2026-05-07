@@ -735,9 +735,13 @@ checksum = "8df9b6e13f2d32c91b9bd719c00d1958837bc7dec474d94952798cc8e69eeec3"
 name = "tower_defence"
 version = "0.1.0"
 dependencies = [
+ "axum",
  "ga",
  "rand",
  "rayon",
+ "serde",
+ "serde_json",
+ "tokio",
 ]
 
 [[package]]

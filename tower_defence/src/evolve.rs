@@ -1,9 +1,17 @@
+use std::sync::atomic::{AtomicU64, Ordering};
+
 use ga::{
     item_array::ItemArray,
     population::MutationConfig,
     traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate},
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
+
+static MAP_SEED: AtomicU64 = AtomicU64::new(0x5EED_C0DE_CAFE_BABE);
+
+pub fn set_map_seed(seed: u64) {
+    MAP_SEED.store(seed, Ordering::Relaxed);
+}
 
 use crate::{
     builder::{Builder, Instruction},
@@ -21,20 +29,96 @@ const SIM_TICKS: u64 = 300;
 const MIN_INSTRS: usize = 5;
 const MAX_INSTRS: usize = 50;
 
-/// Recreates the fixed evaluation map. Always identical — fitness is deterministic.
+// ── Perlin noise ──────────────────────────────────────────────────────────────
+
+fn make_perm(seed: u64) -> [u8; 512] {
+    let mut p: [u8; 256] = core::array::from_fn(|i| i as u8);
+    let mut s = seed;
+    for i in (1..256).rev() {
+        s = s.wrapping_mul(6364136223846793005).wrapping_add(1442695040888963407);
+        let j = ((s >> 33) as usize) % (i + 1);
+        p.swap(i, j);
+    }
+    let mut perm = [0u8; 512];
+    for i in 0..256 { perm[i] = p[i]; perm[i + 256] = p[i]; }
+    perm
+}
+
+fn perlin_fade(t: f64) -> f64 { t * t * t * (t * (t * 6.0 - 15.0) + 10.0) }
+fn perlin_lerp(a: f64, b: f64, t: f64) -> f64 { a + t * (b - a) }
+fn perlin_grad(h: u8, x: f64, y: f64) -> f64 {
+    match h & 3 { 0 => x + y, 1 => -x + y, 2 => x - y, _ => -x - y }
+}
+
+fn perlin2d(perm: &[u8; 512], x: f64, y: f64) -> f64 {
+    let xi = (x.floor() as i64).rem_euclid(256) as usize;
+    let yi = (y.floor() as i64).rem_euclid(256) as usize;
+    let xf = x - x.floor();
+    let yf = y - y.floor();
+    let u = perlin_fade(xf);
+    let v = perlin_fade(yf);
+    let a  = perm[xi]     as usize + yi;
+    let b  = perm[xi + 1] as usize + yi;
+    let aa = perm[a]; let ab = perm[a + 1];
+    let ba = perm[b]; let bb = perm[b + 1];
+    perlin_lerp(
+        perlin_lerp(perlin_grad(aa, xf,       yf      ),
+                    perlin_grad(ba, xf - 1.0, yf      ), u),
+        perlin_lerp(perlin_grad(ab, xf,       yf - 1.0),
+                    perlin_grad(bb, xf - 1.0, yf - 1.0), u),
+        v,
+    )
+}
+
+/// Recreates the evaluation map using the current global MAP_SEED.
+/// All evaluations within one GA run share the same seed (set via set_map_seed).
 pub fn make_eval_map() -> Map {
-    let mut cells: Vec<Vec<Cell>> = (0..MAP_H)
-        .map(|_| (0..MAP_W).map(|_| Cell::new(Terrain::Plain)).collect())
-        .collect();
-    for y in 3..=6 { cells[y][6] = Cell::new(Terrain::Rock); }
-    for x in 9..=12 { cells[5][x] = Cell::new(Terrain::Water); }
-    Map::new(cells, vec![(0, 0), (19, 0), (0, 11), (19, 11)])
+    let perm = make_perm(MAP_SEED.load(Ordering::Relaxed));
+    let mut cells: Vec<Vec<Cell>> = (0..MAP_H).map(|y| {
+        (0..MAP_W).map(|x| {
+            let fx = x as f64 * 0.28;
+            let fy = y as f64 * 0.28;
+            let n1 = perlin2d(&perm, fx, fy);
+            let n2 = perlin2d(&perm, fx * 2.1 + 31.7, fy * 2.1 + 17.3) * 0.45;
+            let n = n1 + n2;
+            let terrain = if n < -0.22 { Terrain::Water }
+                          else if n > 0.28 { Terrain::Rock }
+                          else { Terrain::Plain };
+            Cell::new(terrain)
+        }).collect()
+    }).collect();
+
+    // Force plain border so spawn points and edge pathing always work.
+    for x in 0..MAP_W {
+        cells[0][x].terrain = Terrain::Plain;
+        cells[MAP_H - 1][x].terrain = Terrain::Plain;
+    }
+    for y in 0..MAP_H {
+        cells[y][0].terrain = Terrain::Plain;
+        cells[y][MAP_W - 1].terrain = Terrain::Plain;
+    }
+    // Force builder start walkable.
+    cells[BUILDER_START.1][BUILDER_START.0].terrain = Terrain::Plain;
+
+    Map::new(cells, vec![(0, 0), (MAP_W - 1, 0), (0, MAP_H - 1), (MAP_W - 1, MAP_H - 1)])
+}
+
+/// Maximum achievable fitness for the eval config.
+/// Ticks survived + HP bonus + all possible enemy kills.
+pub fn max_fitness() -> f64 {
+    let cfg = eval_config();
+    let map = make_eval_map();
+    let n_spawns = map.spawn_points.len() as u64;
+    let max_kills = if SIM_TICKS > cfg.spawn_delay {
+        ((SIM_TICKS - cfg.spawn_delay) / cfg.spawn_interval + 1) * cfg.enemies_per_spawn as u64 * n_spawns
+    } else { 0 };
+    SIM_TICKS as f64 + BUILDER_HP as f64 + max_kills as f64
 }
 
 pub fn eval_config() -> Config {
     Config {
         spawn_delay: 70,
-        spawn_interval: 15,
+        spawn_interval: 8,
         enemies_per_spawn: 1,
         enemy_hp: 32,
         enemy_damage: 2,
@@ -156,11 +240,10 @@ impl Fitness for BuilderGenome {
             if sim.is_game_over() { break; }
         }
 
-        // Fitness: ticks survived. Surviving all 300 ticks earns an HP bonus.
         let fitness = if sim.is_game_over() {
-            sim.tick as f64
+            sim.tick as f64 + sim.enemies_killed as f64
         } else {
-            SIM_TICKS as f64 + sim.builder.hp as f64
+            SIM_TICKS as f64 + sim.builder.hp as f64 + sim.enemies_killed as f64
         };
 
         self.0.set_fitness(Some(fitness));

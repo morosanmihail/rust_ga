@@ -4,7 +4,7 @@ use rand::Rng;
 
 use tower_defence::{
     builder::Builder,
-    evolve::{eval_config, make_eval_map, BuilderGenome, BUILDER_START, BUILDER_HP},
+    evolve::{eval_config, make_eval_map, max_fitness, BuilderGenome, BUILDER_START, BUILDER_HP},
     render::render,
     simulation::Simulation,
 };
@@ -14,7 +14,7 @@ const POP_SIZE: usize = 80;
 
 fn main() {
     println!("=== Tower Defence — Evolving Builder Instructions ===\n");
-    println!("Map: fixed 20×12, 4 corner spawns, rock barrier col 6, water strip row 5 cols 9-12");
+    println!("Map: 20×12, 4 corner spawns, Perlin-noise terrain (deterministic seed)");
     println!("Fitness: ticks survived (max 300) + remaining HP if all 300 survived");
     println!("Population: {} | Generations: {}\n", POP_SIZE, GENERATIONS);
 
@@ -30,7 +30,7 @@ fn main() {
 
     let mut pop: Population<BuilderGenome> = Population::new(config);
 
-    const MAX_FITNESS: f64 = 300.0 + BUILDER_HP as f64;
+    let MAX_FITNESS: f64 = max_fitness();
     let mut solved_gen = None;
 
     for gen in 1..=GENERATIONS {

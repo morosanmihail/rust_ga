@@ -59,12 +59,12 @@ impl Cell {
         Cell { terrain, structure: None }
     }
 
-    /// Builder: plain (any structure) or water+bridge.
+    /// Builder: plain with no blocking structure, or water+bridge.
     pub fn is_walkable(&self) -> bool {
-        match &self.terrain {
-            Terrain::Plain => true,
-            Terrain::Water => matches!(&self.structure, Some(Structure::Bridge)),
-            Terrain::Rock => false,
+        match (&self.terrain, &self.structure) {
+            (Terrain::Plain, None) => true,
+            (Terrain::Water, Some(Structure::Bridge)) => true,
+            _ => false,
         }
     }
 

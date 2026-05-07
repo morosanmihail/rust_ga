@@ -45,12 +45,13 @@ pub struct Simulation {
     pub enemies: Vec<Enemy>,
     pub tick: u64,
     pub config: Config,
+    pub enemies_killed: u32,
     next_enemy_id: u32,
 }
 
 impl Simulation {
     pub fn new(map: Map, builder: Builder, config: Config) -> Self {
-        Simulation { map, builder, enemies: Vec::new(), tick: 0, config, next_enemy_id: 0 }
+        Simulation { map, builder, enemies: Vec::new(), tick: 0, config, enemies_killed: 0, next_enemy_id: 0 }
     }
 
     pub fn builder_done(&self) -> bool { self.builder.is_idle() }
@@ -150,8 +151,10 @@ impl Simulation {
             }
         }
 
-        // 6. Remove dead enemies.
+        // 6. Remove dead enemies, count kills.
+        let before = self.enemies.len();
         self.enemies.retain(|e| e.is_alive());
+        self.enemies_killed += (before - self.enemies.len()) as u32;
 
         self.tick += 1;
     }
