@@ -6,7 +6,7 @@ use std::time::Duration;
 use ga::population::{MutationConfig, Population, PopulationConfig};
 
 use swarm::evolve::{update_snapshot, SteeringGenome};
-use swarm::sim::{SwarmSim, GOAL_X, WORLD_H, WORLD_W};
+use swarm::sim::{SwarmSim, WORLD_H, WORLD_W};
 
 const GA_GENS_PER_TICK: usize = 20;
 const MAX_SIM_TICKS: u64 = 600;
@@ -29,10 +29,14 @@ fn render(sim: &SwarmSim, best: &SteeringGenome, total_ga_gens: u64) {
         }
     }
 
-    let goal_col = (GOAL_X as usize).min(gw - 1);
-    for row in &mut grid {
-        if row[goal_col] == '.' {
-            row[goal_col] = '|';
+    let g = &sim.goal;
+    let gx0 = (g.x as usize).clamp(0, gw - 1);
+    let gx1 = ((g.x + g.w) as usize).clamp(0, gw - 1);
+    let gy0 = (g.y as usize).clamp(0, gh - 1);
+    let gy1 = ((g.y + g.h) as usize).clamp(0, gh - 1);
+    for gy in gy0..=gy1 {
+        for gx in gx0..=gx1 {
+            if grid[gy][gx] == '.' { grid[gy][gx] = 'G'; }
         }
     }
 
@@ -65,7 +69,7 @@ fn render(sim: &SwarmSim, best: &SteeringGenome, total_ga_gens: u64) {
         "Best weights  goal={:.2}  obs={:.2}  align={:.2}  sep={:.2}",
         bw[0], bw[1], bw[2], bw[3]
     );
-    println!("Legend:  @ agent   # obstacle   | goal   * done");
+    println!("Legend:  @ agent   # obstacle   G goal   * done");
     println!();
     for row in &grid {
         let s: String = row.iter().collect();

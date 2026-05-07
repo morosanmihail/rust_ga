@@ -6,7 +6,7 @@ use ga::{
 };
 use rand::{rngs::StdRng, Rng, SeedableRng};
 
-use super::sim::{SteeringWeights, SwarmSim, WORLD_W};
+use super::sim::{SteeringWeights, SwarmSim};
 
 // How many ticks to simulate forward when scoring a candidate genome.
 const LOOKAHEAD: usize = 30;
@@ -101,14 +101,15 @@ impl Fitness for SteeringGenome {
         // Per-agent progress sum, large goal bonus, and a heavy worst-agent term.
         // Worst-agent term dominates once most agents are done, so the GA cannot
         // ignore the last straggler.
+        let goal_cx = sim.goal.center().0;
         let min_progress = sim
             .agents
             .iter()
-            .map(|a| if a.reached_goal { WORLD_W } else { a.pos.0 })
+            .map(|a| if a.reached_goal { goal_cx } else { a.pos.0.min(goal_cx) })
             .fold(f64::INFINITY, f64::min);
-        let score = sim.progress_score() / WORLD_W * 60.0
+        let score = sim.progress_score() / goal_cx * 60.0
             + sim.agents_at_goal() as f64 * 50.0
-            + min_progress / WORLD_W * 80.0;
+            + min_progress / goal_cx * 80.0;
         self.fitness = Some(score);
         Some(score)
     }

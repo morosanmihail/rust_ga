@@ -31,6 +31,10 @@ path = "src/tower_defence_server.rs"
 name = "swarm"
 path = "src/swarm_main.rs"
 
+[[bin]]
+name = "swarm_server"
+path = "src/swarm_server.rs"
+
 [dependencies]
 rayon.workspace = true
 rand.workspace = true
