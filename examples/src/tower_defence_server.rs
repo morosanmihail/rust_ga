@@ -336,7 +336,7 @@ canvas{display:block;border:1px solid #21262d;border-radius:6px;
   <div class="leg"><div class="lb" style="background:transparent;outline:2px dashed #f0a500;border-radius:0"></div>Spawn</div>
 </div>
 
-<div id="footer">New GA generation every 5 s — replays best solution tick by tick</div>
+<div id="footer">Evolves a sequence of builder instructions (Move/BuildTower/BuildWall/BuildBridge) — best genome fed as instruction queue for a 300-tick simulation, fitness = ticks survived (+ HP if alive at end).</div>
 
 <script>
 const canvas    = document.getElementById('canvas');

@@ -98,6 +98,12 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
       color: #484f58;
       letter-spacing: 1px;
     }
+    #footer {
+      font-size: 10px;
+      color: #484f58;
+      letter-spacing: 1px;
+      text-align: center;
+    }
   </style>
 </head>
 <body>
@@ -145,6 +151,7 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
   </div>
 
   <div id="status-line">next update in <span id="countdown">10</span>s</div>
+  <div id="footer">Evolves a sequence of turn decisions (U/D/L/R) for an agent navigating a maze — best genome replayed each generation to show the path.</div>
 
   <script>
     const canvas = document.getElementById('maze');

@@ -236,7 +236,7 @@ canvas{display:block;border:1px solid #21262d;border-radius:6px;max-width:100%;i
   <div class="leg"><div class="ll" style="background:#3fb950;height:12px;border-radius:2px"></div>Goal zone</div>
 </div>
 
-<div id="footer">Each sim tick: GA evolves 20 gens to find best steering weights — then applies them</div>
+<div id="footer">Evolves 4 steering weights [goal_pull, obstacle_push, neighbor_align, neighbor_separate] for a boid swarm — GA runs 20 generations on current snapshot each tick, best weights applied to advance sim one step.</div>
 <div id="loading">Starting…</div>
 
 <script>
