@@ -10,6 +10,8 @@ use axum::{response::Html, routing::get, Router};
 
 mod swarm_impl {
     use std::sync::{Arc, RwLock};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use axum::{extract::State, response::Html, routing::get, Json, Router};
     use ga::population::{MutationConfig, Population, PopulationConfig};
     use rand::Rng;
@@ -35,6 +37,12 @@ mod swarm_impl {
         agents_at_goal: usize, total_agents: usize, finished: bool,
     }
 
+    struct Shared { state: RwLock<ApiState>, last_hit: AtomicU64 }
+
+    fn now_secs() -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    }
+
     fn make_pop() -> Population<SteeringGenome> {
         Population::new(PopulationConfig {
             seed: rand::thread_rng().gen(),
@@ -44,7 +52,7 @@ mod swarm_impl {
         })
     }
 
-    fn ga_thread(shared: Arc<RwLock<ApiState>>) {
+    fn ga_thread(shared: Arc<Shared>) {
         let mut run = 0u64;
         let mut total_ga_gens = 0u64;
         loop {
@@ -55,6 +63,10 @@ mod swarm_impl {
                 .map(|o| [o.pos.0, o.pos.1, o.radius]).collect();
             let mut pop = make_pop();
             loop {
+                if now_secs().saturating_sub(shared.last_hit.load(Ordering::Relaxed)) > 30 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    continue;
+                }
                 for _ in 0..GA_GENS_PER_TICK { pop.tick_parallel(); total_ga_gens += 1; }
                 let best = pop.get_best_member().clone();
                 sim.step(&best.to_weights());
@@ -65,7 +77,7 @@ mod swarm_impl {
                     })
                     .collect();
                 let finished = sim.agents_at_goal() == sim.agents.len() || sim.tick >= MAX_SIM_TICKS;
-                *shared.write().unwrap() = ApiState {
+                *shared.state.write().unwrap() = ApiState {
                     tick: sim.tick, ga_gens: total_ga_gens, run, agents,
                     obstacles: obstacles.clone(),
                     goal: [sim.goal.x, sim.goal.y, sim.goal.w, sim.goal.h],
@@ -85,12 +97,16 @@ mod swarm_impl {
 
     async fn handle_index() -> Html<&'static str> { Html(HTML) }
 
-    async fn handle_state(State(s): State<Arc<RwLock<ApiState>>>) -> Json<ApiState> {
-        Json(s.read().unwrap().clone())
+    async fn handle_state(State(s): State<Arc<Shared>>) -> Json<ApiState> {
+        s.last_hit.store(now_secs(), Ordering::Relaxed);
+        Json(s.state.read().unwrap().clone())
     }
 
     pub fn make_router() -> Router {
-        let shared = Arc::new(RwLock::new(ApiState::default()));
+        let shared = Arc::new(Shared {
+            state: RwLock::new(ApiState::default()),
+            last_hit: AtomicU64::new(0),
+        });
         let s = shared.clone();
         std::thread::spawn(move || ga_thread(s));
         Router::new()
@@ -334,6 +350,8 @@ loop();
 
 mod maze_impl {
     use std::sync::{Arc, OnceLock, RwLock};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use axum::{extract::State, response::Html, routing::get, Json, Router};
     use ga::{
         item_array::ItemArray,
@@ -572,7 +590,13 @@ mod maze_impl {
         maze_id: u64,
     }
 
-    fn ga_thread(shared: Arc<RwLock<ApiState>>) {
+    struct Shared { state: RwLock<ApiState>, last_hit: AtomicU64 }
+
+    fn now_secs() -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    }
+
+    fn ga_thread(shared: Arc<Shared>) {
         let mut maze_id = 0u64;
         loop {
             let seed: [u8; 32] = rand::thread_rng().gen();
@@ -594,16 +618,22 @@ mod maze_impl {
                 seed: rng.gen(), preseeded_population: vec![],
             };
             let mut population: Population<MazePath> = Population::new(config);
-            for gen in 0..GENS_PER_MAZE {
+            let mut gen = 0;
+            while gen < GENS_PER_MAZE {
+                if now_secs().saturating_sub(shared.last_hit.load(Ordering::Relaxed)) > 30 {
+                    std::thread::sleep(std::time::Duration::from_secs(1));
+                    continue;
+                }
                 population.tick();
                 std::thread::sleep(std::time::Duration::from_secs(1));
+                gen += 1;
                 let best = population.get_best_member();
                 let maze = get_maze();
                 let (score, path, solved) = simulate(&maze, best.0.get_data());
                 let path_api: Vec<[usize; 2]> = path.iter().map(|&(x, y)| [x, y]).collect();
-                *shared.write().unwrap() = ApiState {
+                *shared.state.write().unwrap() = ApiState {
                     width: MAZE_W, height: MAZE_H,
-                    generation: gen + 1, total_generations: GENS_PER_MAZE,
+                    generation: gen, total_generations: GENS_PER_MAZE,
                     score, solved,
                     prizes: prizes.clone(),
                     path: path_api,
@@ -616,18 +646,21 @@ mod maze_impl {
 
     async fn handle_index() -> Html<&'static str> { Html(crate::maze_html::INDEX_HTML) }
 
-    async fn handle_state(State(shared): State<Arc<RwLock<ApiState>>>) -> Json<ApiState> {
-        Json(shared.read().unwrap().clone())
+    async fn handle_state(State(shared): State<Arc<Shared>>) -> Json<ApiState> {
+        shared.last_hit.store(now_secs(), Ordering::Relaxed);
+        Json(shared.state.read().unwrap().clone())
     }
 
     pub fn make_router() -> Router {
-        let initial = ApiState {
-            width: MAZE_W, height: MAZE_H,
-            generation: 0, total_generations: GENS_PER_MAZE,
-            score: 0.0, solved: false,
-            prizes: vec![], path: vec![], cells: vec![], maze_id: 0,
-        };
-        let shared = Arc::new(RwLock::new(initial));
+        let shared = Arc::new(Shared {
+            state: RwLock::new(ApiState {
+                width: MAZE_W, height: MAZE_H,
+                generation: 0, total_generations: GENS_PER_MAZE,
+                score: 0.0, solved: false,
+                prizes: vec![], path: vec![], cells: vec![], maze_id: 0,
+            }),
+            last_hit: AtomicU64::new(0),
+        });
         let s = shared.clone();
         std::thread::spawn(move || ga_thread(s));
         Router::new()
@@ -641,6 +674,8 @@ mod maze_impl {
 
 mod td_impl {
     use std::sync::{Arc, RwLock};
+    use std::sync::atomic::{AtomicU64, Ordering};
+    use std::time::{SystemTime, UNIX_EPOCH};
     use axum::{extract::State, response::Html, routing::get, Json, Router};
     use ga::population::{MutationConfig, Population, PopulationConfig};
     use ga::traits::FitnessRetrieve;
@@ -759,7 +794,13 @@ mod td_impl {
         (width, height, terrain, spawn_points)
     }
 
-    fn ga_thread(shared: Arc<RwLock<ApiState>>) {
+    struct Shared { state: RwLock<ApiState>, last_hit: AtomicU64 }
+
+    fn now_secs() -> u64 {
+        SystemTime::now().duration_since(UNIX_EPOCH).unwrap_or_default().as_secs()
+    }
+
+    fn ga_thread(shared: Arc<Shared>) {
         let mut rng = rand::thread_rng();
         let cfg = eval_config();
         set_map_seed(rng.gen());
@@ -768,13 +809,17 @@ mod td_impl {
         let mut pop: Population<BuilderGenome> = Population::new(make_pop_config());
         let mut gen = 0usize;
         loop {
+            if now_secs().saturating_sub(shared.last_hit.load(Ordering::Relaxed)) > 30 {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                continue;
+            }
             std::thread::sleep(std::time::Duration::from_millis(2500));
             pop.tick_parallel();
             gen += 1;
             let best = pop.get_best_member().clone();
             let fitness = best.get_fitness().unwrap_or(0.0);
             let (builder_instrs, ticks, survived) = record_sim(&best);
-            *shared.write().unwrap() = ApiState {
+            *shared.state.write().unwrap() = ApiState {
                 width, height, generation: gen, fitness, max_fitness: mf,
                 terrain: terrain.clone(), spawn_points: spawn_points.clone(),
                 builder_max_hp: BUILDER_HP, enemy_max_hp: cfg.enemy_hp,
@@ -793,12 +838,16 @@ mod td_impl {
 
     async fn handle_index() -> Html<&'static str> { Html(HTML) }
 
-    async fn handle_state(State(s): State<Arc<RwLock<ApiState>>>) -> Json<ApiState> {
-        Json(s.read().unwrap().clone())
+    async fn handle_state(State(s): State<Arc<Shared>>) -> Json<ApiState> {
+        s.last_hit.store(now_secs(), Ordering::Relaxed);
+        Json(s.state.read().unwrap().clone())
     }
 
     pub fn make_router() -> Router {
-        let shared = Arc::new(RwLock::new(ApiState::default()));
+        let shared = Arc::new(Shared {
+            state: RwLock::new(ApiState::default()),
+            last_hit: AtomicU64::new(0),
+        });
         let s = shared.clone();
         std::thread::spawn(move || ga_thread(s));
         Router::new()
