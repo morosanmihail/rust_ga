@@ -12,10 +12,6 @@ name = "equation"
 path = "src/equation.rs"
 
 [[bin]]
-name = "maze_server"
-path = "src/maze_server.rs"
-
-[[bin]]
 name = "tower_defence"
 path = "src/tower_defence_main.rs"
 
@@ -24,16 +20,12 @@ name = "tower_defence_hp_search"
 path = "src/tower_defence_hp_search.rs"
 
 [[bin]]
-name = "tower_defence_server"
-path = "src/tower_defence_server.rs"
-
-[[bin]]
 name = "swarm"
 path = "src/swarm_main.rs"
 
 [[bin]]
-name = "swarm_server"
-path = "src/swarm_server.rs"
+name = "server"
+path = "src/server.rs"
 
 [dependencies]
 rayon.workspace = true

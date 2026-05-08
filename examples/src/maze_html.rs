@@ -107,6 +107,12 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
   </style>
 </head>
 <body>
+  <nav style="display:flex;gap:12px;font-size:11px;margin-bottom:4px">
+    <a href="/" style="color:#8b949e;text-decoration:none;padding:4px 10px;border:1px solid #30363d;border-radius:6px">Home</a>
+    <a href="/swarm" style="color:#8b949e;text-decoration:none;padding:4px 10px;border:1px solid #30363d;border-radius:6px">Swarm</a>
+    <a href="/maze" style="color:#58a6ff;text-decoration:none;padding:4px 10px;border:1px solid #58a6ff;border-radius:6px">Maze</a>
+    <a href="/tower-defence" style="color:#8b949e;text-decoration:none;padding:4px 10px;border:1px solid #30363d;border-radius:6px">Tower Defence</a>
+  </nav>
   <h1>Maze GA Solver</h1>
 
   <div id="stats">
@@ -352,7 +358,7 @@ pub const INDEX_HTML: &str = r####"<!DOCTYPE html>
 
     async function refresh() {
       try {
-        const res = await fetch('/api/state');
+        const res = await fetch('/maze/api/state');
         if (!res.ok) return;
         const data = await res.json();
 
