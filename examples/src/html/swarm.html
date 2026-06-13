@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Swarm — Per-tick GA</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#0d1117;color:#c9d1d9;
+  font-family:'Courier New',monospace;
+  display:flex;flex-direction:column;align-items:center;
+  min-height:100vh;padding:20px 12px;gap:14px;
+}
+nav{display:flex;gap:12px;font-size:11px}
+nav a{color:#8b949e;text-decoration:none;padding:4px 10px;border:1px solid #30363d;border-radius:6px}
+nav a:hover{color:#c9d1d9;border-color:#8b949e}
+nav a.active{color:#58a6ff;border-color:#58a6ff}
+h1{color:#58a6ff;font-size:1.2rem;letter-spacing:4px;text-transform:uppercase}
+#stats{display:flex;gap:8px;flex-wrap:wrap;justify-content:center}
+.stat{
+  background:#161b22;border:1px solid #30363d;border-radius:8px;
+  padding:7px 14px;text-align:center;min-width:88px;
+}
+.stat-label{font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px}
+.stat-value{font-size:17px;font-weight:bold;color:#58a6ff;margin-top:2px}
+.green{color:#3fb950}
+canvas{display:block;border:1px solid #21262d;border-radius:6px;max-width:100%;image-rendering:pixelated}
+#weights-row{
+  display:flex;align-items:flex-end;gap:4px;
+  background:#161b22;border:1px solid #30363d;border-radius:8px;
+  padding:10px 16px 6px;
+}
+.wbar-wrap{display:flex;flex-direction:column;align-items:center;gap:3px;min-width:52px}
+.wbar-label{font-size:9px;color:#8b949e;text-transform:uppercase;letter-spacing:1px}
+.wbar-val{font-size:11px;color:#c9d1d9}
+.wbar-track{
+  width:40px;height:50px;background:#0d1117;border-radius:4px;
+  display:flex;align-items:flex-end;overflow:hidden;
+}
+.wbar-fill{width:100%;border-radius:4px 4px 0 0;transition:height 0.15s ease}
+#legend{display:flex;gap:14px;font-size:11px;color:#8b949e;flex-wrap:wrap;justify-content:center}
+.leg{display:flex;align-items:center;gap:5px}
+.lc{width:12px;height:12px;border-radius:50%;flex-shrink:0}
+.ll{width:18px;height:3px;flex-shrink:0}
+#footer{font-size:10px;color:#484f58;letter-spacing:1px;text-align:center}
+#loading{font-size:14px;color:#8b949e;padding:40px}
+</style>
+</head>
+<body>
+<nav>
+  <a href="/">Home</a>
+  <a href="/swarm" class="active">Swarm</a>
+  <a href="/maze">Maze</a>
+  <a href="/tower-defence">Tower Defence</a>
+</nav>
+<h1>Swarm Steering — Per-tick Genetic Algorithm</h1>
+
+<div id="stats">
+  <div class="stat"><div class="stat-label">Run</div><div class="stat-value" id="s-run">—</div></div>
+  <div class="stat"><div class="stat-label">Sim Tick</div><div class="stat-value" id="s-tick">—</div></div>
+  <div class="stat"><div class="stat-label">GA Gens</div><div class="stat-value" id="s-gens">—</div></div>
+  <div class="stat"><div class="stat-label">At Goal</div><div class="stat-value green" id="s-goal">—</div></div>
+</div>
+
+<canvas id="canvas"></canvas>
+
+<div id="weights-row">
+  <div class="wbar-wrap">
+    <div class="wbar-track"><div class="wbar-fill" id="w0" style="background:#58a6ff"></div></div>
+    <div class="wbar-val" id="wv0">—</div>
+    <div class="wbar-label">Goal</div>
+  </div>
+  <div class="wbar-wrap">
+    <div class="wbar-track"><div class="wbar-fill" id="w1" style="background:#f85149"></div></div>
+    <div class="wbar-val" id="wv1">—</div>
+    <div class="wbar-label">Obstacle</div>
+  </div>
+  <div class="wbar-wrap">
+    <div class="wbar-track"><div class="wbar-fill" id="w2" style="background:#3fb950"></div></div>
+    <div class="wbar-val" id="wv2">—</div>
+    <div class="wbar-label">Align</div>
+  </div>
+  <div class="wbar-wrap">
+    <div class="wbar-track"><div class="wbar-fill" id="w3" style="background:#e3b341"></div></div>
+    <div class="wbar-val" id="wv3">—</div>
+    <div class="wbar-label">Separate</div>
+  </div>
+</div>
+
+<div id="legend">
+  <div class="leg"><div class="lc" style="background:#58a6ff;border:1.5px solid #1f6feb"></div>Agent (moving)</div>
+  <div class="leg"><div class="lc" style="background:#3fb950;border:1.5px solid #2ea043"></div>Agent (done)</div>
+  <div class="leg"><div class="lc" style="background:#b94040;border:1.5px solid #ff5555"></div>Obstacle</div>
+  <div class="leg"><div class="ll" style="background:#3fb950;height:12px;border-radius:2px"></div>Goal zone</div>
+</div>
+
+<div id="footer">Evolves 4 steering weights [goal_pull, obstacle_push, neighbor_align, neighbor_separate] for a boid swarm — GA runs 20 generations on current snapshot each tick, best weights applied to advance sim one step.</div>
+<div id="loading">Starting…</div>
+
+<script>
+const canvas  = document.getElementById('canvas');
+const ctx     = canvas.getContext('2d');
+const loading = document.getElementById('loading');
+
+let state = null;
+const SCALE = 14;
+const W_COLORS = ['#58a6ff','#f85149','#3fb950','#e3b341'];
+const MAX_W = 5.0;
+
+function draw() {
+  if (!state || !state.total_agents) return;
+  loading.style.display = 'none';
+
+  const CW = Math.round(state.world_w * SCALE);
+  const CH = Math.round(state.world_h * SCALE);
+  if (canvas.width !== CW || canvas.height !== CH) {
+    canvas.width  = CW;
+    canvas.height = CH;
+  }
+
+  ctx.fillStyle = '#0d1117';
+  ctx.fillRect(0, 0, CW, CH);
+
+  ctx.strokeStyle = 'rgba(255,255,255,0.03)';
+  ctx.lineWidth = 0.5;
+  for (let x = 0; x <= state.world_w; x++) {
+    ctx.beginPath(); ctx.moveTo(x*SCALE,0); ctx.lineTo(x*SCALE,CH); ctx.stroke();
+  }
+  for (let y = 0; y <= state.world_h; y++) {
+    ctx.beginPath(); ctx.moveTo(0,y*SCALE); ctx.lineTo(CW,y*SCALE); ctx.stroke();
+  }
+
+  for (const [ox, oy, r] of state.obstacles) {
+    const px = ox * SCALE, py = oy * SCALE, pr = r * SCALE;
+    const g = ctx.createRadialGradient(px, py, pr*0.2, px, py, pr);
+    g.addColorStop(0, 'rgba(200,50,50,0.85)');
+    g.addColorStop(1, 'rgba(120,20,20,0.55)');
+    ctx.fillStyle = g;
+    ctx.strokeStyle = '#ff5555';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  const [grx, gry, grw, grh] = state.goal;
+  const gpx = grx * SCALE, gpy = gry * SCALE;
+  const gpw = grw * SCALE, gph = grh * SCALE;
+  const glAlpha = 0.18 + 0.10 * Math.sin(Date.now() * 0.003);
+  ctx.fillStyle = `rgba(63,185,80,${glAlpha})`;
+  ctx.fillRect(gpx, gpy, gpw, gph);
+  const borderAlpha = 0.7 + 0.3 * Math.sin(Date.now() * 0.003);
+  ctx.strokeStyle = `rgba(63,185,80,${borderAlpha})`;
+  ctx.lineWidth = 2;
+  ctx.strokeRect(gpx, gpy, gpw, gph);
+  ctx.fillStyle = '#3fb950';
+  ctx.font = `bold 10px 'Courier New', monospace`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText('GOAL', gpx + gpw / 2, gpy + gph / 2);
+
+  for (const a of state.agents) {
+    const ax = a.x * SCALE, ay = a.y * SCALE;
+    if (!a.done) {
+      const speed = Math.hypot(a.vx, a.vy);
+      if (speed > 0.05) {
+        const arrowLen = speed / 0.7 * SCALE * 0.6;
+        ctx.strokeStyle = 'rgba(88,166,255,0.35)';
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(ax, ay);
+        ctx.lineTo(ax + a.vx/speed * arrowLen, ay + a.vy/speed * arrowLen);
+        ctx.stroke();
+      }
+    }
+    const r = a.done ? 5 : 4;
+    ctx.fillStyle   = a.done ? '#3fb950' : '#58a6ff';
+    ctx.strokeStyle = a.done ? '#2ea043' : '#1f6feb';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.arc(ax, ay, r, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+  }
+
+  if (state.finished) {
+    const allDone = state.agents_at_goal === state.total_agents;
+    ctx.fillStyle = allDone ? 'rgba(63,185,80,0.12)' : 'rgba(248,81,73,0.12)';
+    ctx.fillRect(0, 0, CW, CH);
+    ctx.fillStyle = allDone ? '#3fb950' : '#f85149';
+    ctx.font = `bold ${SCALE*1.2}px 'Courier New',monospace`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    const msg = allDone
+      ? `All ${state.total_agents} agents reached goal — tick ${state.tick}`
+      : `${state.agents_at_goal}/${state.total_agents} reached goal — timed out at tick ${state.tick}`;
+    ctx.fillText(msg, CW/2, CH/2);
+  }
+
+  document.getElementById('s-run').textContent  = state.run;
+  document.getElementById('s-tick').textContent = state.tick;
+  document.getElementById('s-gens').textContent = state.ga_gens.toLocaleString();
+  const goalEl = document.getElementById('s-goal');
+  goalEl.textContent = `${state.agents_at_goal}/${state.total_agents}`;
+  goalEl.className = 'stat-value ' + (state.agents_at_goal === state.total_agents ? 'green' : '');
+
+  for (let i = 0; i < 4; i++) {
+    const v = state.weights[i];
+    const pct = Math.min(1, v / MAX_W);
+    document.getElementById(`w${i}`).style.height = (pct * 50) + 'px';
+    document.getElementById(`wv${i}`).textContent = v.toFixed(2);
+  }
+}
+
+function poll() {
+  fetch('/swarm/api/state')
+    .then(r => r.json())
+    .then(d => { state = d; })
+    .catch(() => {})
+    .finally(() => setTimeout(poll, 100));
+}
+
+function loop() {
+  draw();
+  requestAnimationFrame(loop);
+}
+
+poll();
+loop();
+</script>
+</body>
+</html>

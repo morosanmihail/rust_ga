@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GA Examples</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+body{
+  background:#0d1117;color:#c9d1d9;
+  font-family:'Courier New',monospace;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  min-height:100vh;gap:32px;padding:40px 16px;
+}
+h1{color:#58a6ff;font-size:1.4rem;letter-spacing:4px;text-transform:uppercase}
+p{color:#8b949e;font-size:12px;max-width:480px;text-align:center;line-height:1.6}
+.cards{display:flex;gap:20px;flex-wrap:wrap;justify-content:center}
+.card{
+  background:#161b22;border:1px solid #30363d;border-radius:12px;
+  padding:24px 28px;min-width:200px;max-width:240px;
+  display:flex;flex-direction:column;gap:10px;
+  text-decoration:none;color:inherit;
+  transition:border-color 0.15s,transform 0.1s;
+}
+.card:hover{border-color:#58a6ff;transform:translateY(-2px)}
+.card-title{color:#58a6ff;font-size:1rem;letter-spacing:2px;text-transform:uppercase}
+.card-desc{color:#8b949e;font-size:11px;line-height:1.5}
+</style>
+</head>
+<body>
+<h1>Genetic Algorithm Examples</h1>
+<p>Three live simulations — each running a GA in the background. Click to explore.</p>
+<div class="cards">
+  <a href="/swarm" class="card">
+    <div class="card-title">Swarm</div>
+    <div class="card-desc">Evolves 4 steering weights for a boid swarm. GA runs every tick, best weights applied immediately.</div>
+  </a>
+  <a href="/maze" class="card">
+    <div class="card-title">Maze</div>
+    <div class="card-desc">Evolves a sequence of turn decisions to navigate a procedurally generated maze.</div>
+  </a>
+  <a href="/tower-defence" class="card">
+    <div class="card-title">Tower Defence</div>
+    <div class="card-desc">Evolves a builder's instruction queue — towers, walls, bridges — to survive 300 ticks.</div>
+  </a>
+</div>
+</body>
+</html>
