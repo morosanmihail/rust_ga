@@ -1,8 +1,25 @@
-use rand::{rngs::StdRng, seq::SliceRandom, Rng, SeedableRng};
+use rand::{rngs::StdRng, Rng, SeedableRng};
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate};
+use crate::{
+    selection::RandomSelection,
+    traits::{Crossover, Fitness, FitnessRetrieve, Generate, Mutate, SelectionStrategy},
+};
+
+struct SelectionHolder(Box<dyn SelectionStrategy + Send + Sync>);
+
+impl Default for SelectionHolder {
+    fn default() -> Self {
+        SelectionHolder(Box::new(RandomSelection))
+    }
+}
+
+impl std::fmt::Debug for SelectionHolder {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.0)
+    }
+}
 
 #[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct Genome<T: Clone + Default> {
@@ -42,6 +59,8 @@ pub struct Population<
     pub config: PopulationConfig<T>,
     generation: i64,
     seed: [u8; 32],
+    #[serde(skip)]
+    selection_strategy: SelectionHolder,
 }
 
 impl<
@@ -60,7 +79,13 @@ impl<
             members,
             config,
             generation: 1,
+            selection_strategy: SelectionHolder::default(),
         }
+    }
+
+    pub fn with_selection_strategy<S: SelectionStrategy + 'static>(mut self, strategy: S) -> Self {
+        self.selection_strategy = SelectionHolder(Box::new(strategy));
+        self
     }
 
     pub fn sort_members(&mut self) {
@@ -114,22 +139,22 @@ impl<
                 .collect::<Vec<_>>(),
         );
 
+        let fitnesses: Vec<Option<f64>> =
+            self.members.iter().map(|m| m.get_fitness()).collect();
+
         // Then mutation
         (0..self.config.mutate_count).for_each(|_| {
-            let mutatable_member = self.members.choose(&mut rng);
-            if let Some(t) = mutatable_member {
-                let m = t.mutate(&self.config.mutation_config, rng.gen());
+            if let Some(idx) = self.selection_strategy.0.select(&fitnesses, &mut rng) {
+                let m = self.members[idx].mutate(&self.config.mutation_config, rng.gen());
                 new_pop.push(m);
             }
         });
 
         // Then crossover
         (0..self.config.crossover_count).for_each(|_| {
-            let crossoverable_members: Vec<&T> =
-                self.members.choose_multiple(&mut rng, 2).collect();
-            let crossoverd_member =
-                crossoverable_members[0].crossover(crossoverable_members[1], rng.gen());
-            new_pop.push(crossoverd_member);
+            if let Some((ai, bi)) = self.selection_strategy.0.select_pair(&fitnesses, &mut rng) {
+                new_pop.push(self.members[ai].crossover(&self.members[bi], rng.gen()));
+            }
         });
 
         // Then newly generated ones
@@ -201,7 +226,7 @@ mod tests {
         p.tick();
 
         let json_string = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[74,10,69,135,98,104,212,150,189,9,67,210,186,54,226,174,21,249,229,110,44,190,127,223,0,21,95,190,62,145,8,244]}", &json_string);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[35,153,135,181,117,106,223,176,80,26,75,210,132,54,141,51,254,124,220,93,158,119,145,163,234,90,252,70,23,174,128,5]}", &json_string);
     }
 
     impl Mutate for i32 {
@@ -257,10 +282,10 @@ mod tests {
         assert_eq!("{\"members\":[1,1,1,1,1,1,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":1,\"seed\":[61,119,195,211,231,165,151,165,122,239,25,225,34,155,137,19,36,226,231,187,28,137,64,231,241,187,37,96,44,109,235,7]}", &json_string);
         p.tick();
         let json_string_saved = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[60,138,55,195,36,130,9,60,34,167,45,171,109,227,200,105,73,11,136,157,253,201,0,108,112,192,244,44,132,166,230,11]}", &json_string_saved);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[60,34,167,45,171,109,227,200,105,73,11,136,157,253,201,0,108,112,192,244,44,132,166,230,11,172,175,200,216,18,65,56]}", &json_string_saved);
         p.tick();
         let json_string_third = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[74,10,69,135,98,104,212,150,189,9,67,210,186,54,226,174,21,249,229,110,44,190,127,223,0,21,95,190,62,145,8,244]}", &json_string_third);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[35,153,135,181,117,106,223,176,80,26,75,210,132,54,141,51,254,124,220,93,158,119,145,163,234,90,252,70,23,174,128,5]}", &json_string_third);
 
         // Deserialise and test
         let mut p: Population<i64> = serde_json::from_str(&json_string_saved).unwrap();
@@ -288,10 +313,10 @@ mod tests {
         assert_eq!("{\"members\":[1,1,1,1,1,1,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":1,\"seed\":[61,119,195,211,231,165,151,165,122,239,25,225,34,155,137,19,36,226,231,187,28,137,64,231,241,187,37,96,44,109,235,7]}", &json_string);
         p.tick_parallel();
         let json_string_saved = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[60,138,55,195,36,130,9,60,34,167,45,171,109,227,200,105,73,11,136,157,253,201,0,108,112,192,244,44,132,166,230,11]}", &json_string_saved);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":2,\"seed\":[60,34,167,45,171,109,227,200,105,73,11,136,157,253,201,0,108,112,192,244,44,132,166,230,11,172,175,200,216,18,65,56]}", &json_string_saved);
         p.tick_parallel();
         let json_string_third = serde_json::to_string(&p).unwrap();
-        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[74,10,69,135,98,104,212,150,189,9,67,210,186,54,226,174,21,249,229,110,44,190,127,223,0,21,95,190,62,145,8,244]}", &json_string_third);
+        assert_eq!("{\"members\":[1,1,4,4,2,2,1,1,1,1],\"config\":{\"seed\":[1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],\"pop_size\":10,\"crossover_count\":2,\"mutate_count\":2,\"elitism_count\":2,\"mutation_config\":{\"gene_mutation_chance\":0.3},\"preseeded_population\":[]},\"generation\":3,\"seed\":[35,153,135,181,117,106,223,176,80,26,75,210,132,54,141,51,254,124,220,93,158,119,145,163,234,90,252,70,23,174,128,5]}", &json_string_third);
 
         // Deserialise and test
         let mut p: Population<i64> = serde_json::from_str(&json_string_saved).unwrap();
